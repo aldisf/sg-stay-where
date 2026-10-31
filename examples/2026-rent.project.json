@@ -1,0 +1,214 @@
+{
+  "id": "2026-rent",
+  "title": "2026 Rent",
+  "archived": false,
+  "budget": {
+    "min": 2500,
+    "max": 3300,
+    "stretchMax": 3500,
+    "spread": 300
+  },
+  "home": {
+    "types": [
+      "Studio",
+      "1BR",
+      "2BR"
+    ],
+    "wholeUnit": true
+  },
+  "criteria": [
+    {
+      "type": "commute",
+      "key": "office",
+      "label": "Office",
+      "icon": "briefcase",
+      "query": "One Raffles Place, 1 Raffles Place, Singapore 048616",
+      "lat": 1.28416,
+      "lng": 103.85139,
+      "departAt": "08:30",
+      "maxMinutes": 35,
+      "weight": 15
+    },
+    {
+      "type": "commute",
+      "key": "partner_office",
+      "label": "Partner's office",
+      "icon": "building-2",
+      "query": "Fusionopolis One, 1 Fusionopolis Way, Singapore 138632",
+      "lat": 1.29891,
+      "lng": 103.78757,
+      "departAt": "08:30",
+      "maxMinutes": 35,
+      "weight": 15
+    },
+    {
+      "type": "station",
+      "key": "mrt",
+      "label": "MRT",
+      "maxMinutes": 15,
+      "maxWalkMeters": 1000,
+      "allowBus": true,
+      "weight": 13
+    },
+    {
+      "type": "price",
+      "key": "price",
+      "weight": 17
+    },
+    {
+      "type": "nearby",
+      "key": "laundromat",
+      "label": "Laundromat",
+      "icon": "washing-machine",
+      "search": "laundromat",
+      "zoom": 16,
+      "bestMinutes": 3,
+      "worstMinutes": 15,
+      "maxMinutes": 10,
+      "weight": 3
+    },
+    {
+      "type": "nearby",
+      "key": "hawker",
+      "label": "Hawker centre",
+      "icon": "soup",
+      "search": "hawker centre",
+      "zoom": 15,
+      "match": "hawker|food cent|market|food village|food court",
+      "bestMinutes": 5,
+      "worstMinutes": 20,
+      "maxMinutes": 15,
+      "weight": 5
+    },
+    {
+      "type": "nearby",
+      "key": "gym",
+      "label": "Gym",
+      "icon": "dumbbell",
+      "search": "gym",
+      "zoom": 15,
+      "bestMinutes": 5,
+      "worstMinutes": 25,
+      "maxMinutes": 15,
+      "weight": 2.5
+    },
+    {
+      "type": "size",
+      "key": "size",
+      "goodSqft": 750,
+      "smallSqft": 350,
+      "weight": 6
+    },
+    {
+      "type": "furnishing",
+      "key": "furnishing",
+      "weight": 3.5
+    },
+    {
+      "type": "move_in",
+      "key": "move_in",
+      "from": "2026-12",
+      "to": "2027-01",
+      "weight": 2.5
+    },
+    {
+      "type": "lease",
+      "key": "lease",
+      "maxYears": 1.5,
+      "weight": 2.5
+    }
+  ],
+  "bonus": {
+    "allBoxes": 10,
+    "proximity": 5
+  },
+  "filters": {
+    "hideColiving": true
+  },
+  "searches": [
+    {
+      "id": "main-propertyguru",
+      "title": "PropertyGuru · whole unit, studio/1BR/2BR, S$2.5k–3.5k, 10 districts",
+      "site": "propertyguru",
+      "url": "https://www.propertyguru.com.sg/property-for-rent?listingType=rent&isCommercial=false&minPrice=2500&maxPrice=3500&bedrooms=0&bedrooms=1&bedrooms=2&entireUnitOrRoom=ent&districtCode=D01&districtCode=D02&districtCode=D03&districtCode=D04&districtCode=D05&districtCode=D08&districtCode=D09&districtCode=D10&districtCode=D11&districtCode=D12&sort=date&order=desc",
+      "pages": 2,
+      "active": true,
+      "template": "main"
+    },
+    {
+      "id": "main-99co",
+      "title": "99.co · whole unit, studio/1BR/2BR, S$2.5k–3.5k, 10 districts",
+      "site": "99co",
+      "url": "https://www.99.co/singapore/rent?main_category=all&name=Singapore&query_name=Singapore&property_segments=residential&price_range=2500%2C3500&rental_type=unit&rooms=0%2C1%2C2&sort_field=recency&sort_order=desc&page_size=36",
+      "pages": 2,
+      "active": true,
+      "template": "main",
+      "districts": [
+        "D01",
+        "D02",
+        "D03",
+        "D04",
+        "D05",
+        "D08",
+        "D09",
+        "D10",
+        "D11",
+        "D12"
+      ],
+      "why": "99.co has no district filter: it searches all of Singapore and keeps listings in your districts (from the postal code)."
+    }
+  ],
+  "skip": {
+    "agents": [],
+    "titlePatterns": [
+      "short[- ]term",
+      "room rental",
+      "master room only",
+      "common room"
+    ]
+  },
+  "message": {
+    "name": "Alex",
+    "household": "Couple, both working professionals",
+    "residency": "Singapore Citizen and Employment Pass holder",
+    "lifestyle": [
+      "Non-smokers",
+      "No pets"
+    ],
+    "moveIn": "Dec 2026 or Jan 2027",
+    "lease": "1 year, may extend",
+    "closing": "Could we arrange a viewing? Thank you!",
+    "template": null
+  },
+  "templates": {
+    "main": {
+      "filters": {
+        "minPrice": 2500,
+        "maxPrice": 3500,
+        "bedrooms": [
+          0,
+          1,
+          2
+        ],
+        "wholeUnit": true,
+        "districts": [
+          "D01",
+          "D02",
+          "D03",
+          "D04",
+          "D05",
+          "D08",
+          "D09",
+          "D10",
+          "D11",
+          "D12"
+        ]
+      },
+      "sites": [
+        "propertyguru",
+        "99co"
+      ],
+      "pages": 2
+    }
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+data/
+data-demo/
+.env
+*.log
+.DS_Store
+test-results*/
+playwright-report/
+.claude/
+scripts/demo-film/
+scripts/screenshots.py

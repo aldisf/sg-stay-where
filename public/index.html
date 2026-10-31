@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>sg-stay-where</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/vendor/maplibre-gl.css">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"><i class="ic" style="--icon:url(/icons/house.svg)"></i></span>
+      <div class="project-menu">
+        <button id="project-button" type="button" class="project-button" aria-haspopup="menu" aria-expanded="false">
+          <span id="project-title">…</span><i class="ic" style="--icon:url(/icons/chevron-down.svg)"></i>
+        </button>
+        <div id="project-list" class="menu" role="menu" hidden></div>
+      </div>
+      <span id="counts" class="counts"></span>
+    </div>
+    <form id="add-form" class="add">
+      <i class="ic" style="--icon:url(/icons/plus.svg)" aria-hidden="true"></i>
+      <input id="add-url" type="url" placeholder="Paste a PropertyGuru, 99.co or Carousell link" aria-label="Add a listing by link" required>
+      <button type="submit">Add</button>
+    </form>
+    <button id="poll-now" type="button" class="wa poll-now" title="Poll now"></button>
+    <button id="wa-status" type="button" class="wa" title="WhatsApp"></button>
+    <button id="theme" type="button" class="icon-btn theme-btn" title="Theme: follows your system" aria-label="Theme"><i class="ic" style="--icon:url(/icons/sun.svg)"></i></button>
+  </header>
+
+  <section id="qr-panel" class="qr-panel" hidden>
+    <img id="qr-img" alt="WhatsApp link QR code" width="220" height="220">
+    <div>
+      <h2>Link WhatsApp</h2>
+      <p>On your phone: WhatsApp › Settings › Linked devices › Link a device, then scan. Only chats that start with a PropertyGuru or 99.co link (or a Carousell link to a listing here) are ever stored.</p>
+    </div>
+  </section>
+
+  <main class="shell">
+    <div class="map-wrap">
+      <div id="map" aria-label="Map of listings"></div>
+      <div id="map-caption" class="map-caption"></div>
+    </div>
+
+    <div class="panel" id="panel">
+      <nav class="tabs" aria-label="Views">
+        <button data-tab="review">Review <span id="review-count" class="badge"></span></button>
+        <button data-tab="listings">Watching</button>
+        <button data-tab="enquiries">Enquiries <span id="enquiries-count" class="badge"></span></button>
+        <button data-tab="searches">Searches</button>
+        <button data-tab="project">Project</button>
+      </nav>
+
+      <div id="connection-status" class="connection-status" hidden role="status">
+        <span id="connection-message"></span>
+        <button id="retry" type="button" class="ghost">Retry</button>
+      </div>
+      <div class="filters">
+        <details id="filter-options" class="filter-options" open>
+          <summary>Filter &amp; sort <span id="active-filters" class="muted"></span></summary>
+          <div class="filter-fields">
+            <label class="listing-search">
+              <i class="ic" style="--icon:url(/icons/search.svg)" aria-hidden="true"></i>
+              <input id="listing-query" type="search" placeholder="Search by name, area or agent" aria-label="Search listings">
+            </label>
+            <div class="chips">
+              <label class="chip" id="chip-station"><input type="checkbox" id="filter-station" checked><span><i class="ic" style="--icon:url(/icons/train-front.svg)"></i><b id="station-label">Station</b></span></label>
+              <label class="chip"><input type="checkbox" id="filter-coliving" checked><span>No co-living</span></label>
+              <label class="chip"><input type="checkbox" id="filter-budget"><span><i class="ic" style="--icon:url(/icons/tag.svg)"></i><b id="budget-label">In budget</b></span></label>
+            </div>
+            <div class="selects">
+              <select id="sort" aria-label="Sort">
+                <option value="score">Best score</option>
+                <option value="newest">Newest</option>
+                <option value="price">Lowest price</option>
+                <option value="activity">Chat activity</option>
+              </select>
+              <select id="filter-status" aria-label="Status"><option value="">Active</option><option value="*">Everything</option></select>
+            </div>
+          </div>
+        </details>
+        <div class="filter-summary">
+          <p id="filter-note" class="filter-note" role="status" aria-live="polite"></p>
+          <button id="clear-filters" type="button" class="link" hidden>Reset filters</button>
+        </div>
+      </div>
+
+      <section id="tab-review" class="tab" hidden><div id="deck" class="deck-wrap"></div></section>
+
+      <section id="tab-listings" class="tab" hidden><ol id="side-list" class="list"></ol></section>
+
+      <section id="tab-enquiries" class="tab page" hidden>
+        <div class="enquiries-heading"><h2>Enquiries</h2><button id="enquiries-read" class="ghost" type="button">Mark all read</button></div>
+        <p id="enquiries-status" class="lede"></p>
+        <div id="enquiries"></div>
+        <p class="hint">One row per home you're in touch about. Only one-to-one chats that start with a PropertyGuru or 99.co link, or a Carousell link to a listing here, are read. Everything else on your WhatsApp is ignored.</p>
+      </section>
+
+      <section id="tab-searches" class="tab page" hidden>
+        <p class="lede">The poll runs every switched-on search, newest listings first, and puts what it finds in Review.</p>
+        <form id="search-brief-form" class="card form">
+          <h3>Describe your search</h3>
+          <label for="search-brief">What would make a home work for you?</label>
+          <textarea id="search-brief" rows="5" maxlength="8000" required placeholder="For example: a whole studio or 1-bedroom, up to S$3,500, near Commonwealth MRT. No co-living. My office is at HarbourFront and I'd like a commute under 40 minutes."></textarea>
+          <p class="hint">Your scheduled agent turns this into portal filters and scoring criteria on its next run. Existing searches keep running until the new plan is ready.</p>
+          <p id="search-brief-status" role="status"></p>
+          <button type="submit">Send to sourcing agent</button>
+        </form>
+        <form id="template-form" class="card form template-card"></form>
+        <p id="buy-searches-note" class="card hint" hidden>Buying: your agent sets up each site's search in your browser (property type, tenure, area, price) and adds it by link below, or from your description above.</p>
+        <ul id="searches" class="search-list"></ul>
+        <form id="poll-form" class="card form">
+          <h3>How much each poll reads</h3>
+          <label class="inline">Listings checked per poll <input name="listings" type="number" min="1" value="40"></label>
+          <p class="hint">Page details and Google Maps checks, oldest first; result pages per search are set in the template. Defaults: 2 pages per search, 40 listings per poll. Need older listings? Ask your agent to backfill, for example "backfill 5 pages of each search".</p>
+        </form>
+        <form id="search-form" class="card form">
+          <h3>Add a search by link</h3>
+          <label>Title <input name="title" required placeholder="PropertyGuru · Tiong Bahru 1BR"></label>
+          <label>Search page URL <input name="url" type="url" required placeholder="https://www.propertyguru.com.sg/property-for-rent?…"></label>
+          <label class="inline">Result pages per poll <input name="pages" type="number" min="1" value="2"></label>
+          <p class="hint">Set up the search on the site (area, price, bedrooms, sorted by newest), then copy the address bar.</p>
+          <button type="submit">Add search</button>
+        </form>
+        <h3>Recent polls</h3>
+        <ul id="polls" class="rows small"></ul>
+      </section>
+
+      <section id="tab-project" class="tab page" hidden>
+        <div id="project-page"></div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="detail" class="sheet" aria-label="Listing">
+    <div class="sheet-bar"><button id="detail-close" type="button" class="icon-btn close" aria-label="Close"><i class="ic" style="--icon:url(/icons/x.svg)"></i></button></div>
+    <div id="detail-body"></div>
+  </dialog>
+
+  <dialog id="new-project" class="dialog">
+    <form method="dialog" id="new-project-form">
+      <h2>New project</h2>
+      <p class="hint">A project is one search effort, like "2026 Rent". Its criteria, searches and intro message are its own.</p>
+      <label>Title <input name="title" required placeholder="2027 Rent"></label>
+      <div class="deal-choice" role="radiogroup" aria-label="Renting or buying?"><label class="check"><input type="radio" name="deal" value="rent" checked> Renting</label><label class="check"><input type="radio" name="deal" value="buy"> Buying</label></div>
+      <label class="check"><input type="checkbox" name="copy" checked> Copy criteria and message from <b id="copy-from"></b></label>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" value="cancel" id="new-project-cancel">Cancel</button>
+        <button type="submit" value="ok">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="contact" class="dialog contact" aria-labelledby="contact-title">
+    <form method="dialog" id="contact-form">
+      <h2 id="contact-title">Message the agent?</h2>
+      <p id="contact-to" class="hint"></p>
+      <textarea id="contact-text" class="private" aria-label="Message to agent" rows="11"></textarea>
+      <p id="contact-note" class="muted small" role="status"></p>
+      <div class="dialog-actions contact-actions">
+        <button type="button" class="ghost" id="contact-cancel">Cancel</button>
+        <button type="button" class="ghost" id="contact-watch">Just watch</button>
+        <button type="button" id="contact-copy">Copy message</button>
+        <a class="ghost" id="contact-open" target="_blank" rel="noopener">Open in WhatsApp</a>
+        <button type="button" id="contact-send">Send</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden role="status" aria-live="polite">
+    <span id="toast-text"></span>
+    <button id="toast-undo" type="button" class="toast-undo">Undo</button>
+  </div>
+
+  <dialog id="lightbox" class="lightbox" aria-label="Image viewer">
+    <button id="lb-close" type="button" class="lb-btn lb-close" aria-label="Close"><i class="ic" style="--icon:url(/icons/x.svg)"></i></button>
+    <button id="lb-prev" type="button" class="lb-btn lb-prev" aria-label="Previous image"><i class="ic" style="--icon:url(/icons/chevron-left.svg)"></i></button>
+    <figure><img id="lb-img" alt=""><figcaption id="lb-caption"></figcaption></figure>
+    <button id="lb-next" type="button" class="lb-btn lb-next" aria-label="Next image"><i class="ic" style="--icon:url(/icons/chevron-right.svg)"></i></button>
+  </dialog>
+
+  <script type="module">import * as maplibregl from "/vendor/maplibre-gl.mjs"; window.maplibregl = { ...maplibregl };</script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
