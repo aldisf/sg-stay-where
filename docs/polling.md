@@ -2,7 +2,7 @@
 
 A poll finds new listings, fills in their details, and measures what the
 project's criteria ask for on Google Maps, all in the user's own browser. An
-agent runs it on request ("poll now") or on a schedule (`scripts/poll.sh`, which
+agent runs it on request ("poll now") or on a schedule (`npm run poll`, which
 runs Claude Code or Codex with `scripts/poll-prompt.md`; see
 [Scheduling](#scheduling)).
 
@@ -297,20 +297,23 @@ Listings beyond what this run checks wait for the next polls, oldest first.
   `SSW_AGENT=codex` to schedule Codex; the
   LaunchAgent keeps that setting.
 - **Linux**: a systemd user timer with `OnCalendar=0/2:00` and `Persistent=true`
-  running `zsh scripts/poll.sh` (cron also works but skips runs missed while
+  running `node src/cli.js poll` (cron also works but skips runs missed while
   asleep). The browser needs a desktop session with Chrome running.
-- **By hand**: `zsh scripts/poll.sh` runs one poll now, the same way.
+- **Windows**: `scripts/install-windows.ps1 poll` (a scheduled task every 2 hours
+  on the hour, while you're signed in). Set `$env:SSW_AGENT = "codex"` first to
+  schedule Codex.
+- **By hand**: `npm run poll` runs one poll now, the same way.
 
 Setting up, checking or removing the job: [skills/schedule-polls](../skills/schedule-polls/SKILL.md).
-Without a job, the app's Poll now button (header) runs `scripts/poll.sh` in the
+Without a job, the app's Poll now button (header) runs the same poll in the
 background; the header shows the last poll, and "Polls stalled" when a job
 exists but nothing ran for 4 hours.
 
 When the computer sleeps:
 
 1. Nothing is polled while it's asleep or off.
-2. On wake, the missed poll runs once (macOS LaunchAgent, or a systemd timer
-   with `Persistent=true`), however long it slept. Later polls keep the
+2. On wake, the missed poll runs once (macOS LaunchAgent, a systemd timer
+   with `Persistent=true`, or the Windows task), however long it slept. Later polls keep the
    2-hour schedule.
 3. The server restarts by itself if it stopped, and WhatsApp reconnects;
    messages sent meanwhile arrive then. A link left offline for weeks may need
@@ -318,17 +321,18 @@ When the computer sleeps:
 4. Chrome must be open for a poll to read the sites; otherwise the poll reports
    it and the next one tries again.
 
-`scripts/poll.sh` picks the agent from `SSW_AGENT` (default `claude`). The
-agent's report goes to `data/poll-logs/<time>.log` and its progress and errors to
+`npm run poll` picks the agent from `SSW_AGENT` (default `claude`) and gives it
+`scripts/poll-prompt.md` on stdin. The agent's report goes to `data/poll-logs/<time>.log` and its progress and errors to
 `<time>.err.log`.
 
 | `SSW_AGENT` | Command | Tool restriction |
 | --- | --- | --- |
-| `claude` | `claude -p … --chrome --allowedTools …` | Claude in Chrome, `Read`, and only the shell commands `node src/cli.js api` and `node src/cli.js attach`. |
-| `codex` | `codex exec --approve-for-me -c sandbox_workspace_write.network_access=true …` | Writes only inside the repo and temp folders; Codex's own reviewer approves its requests, including its Chrome tool. Shell commands are not limited, and network access is on because the sandbox otherwise blocks `127.0.0.1`. |
+| `claude` | `claude -p --chrome --allowedTools …` | Claude in Chrome, `Read`, and only the shell commands `node src/cli.js api` and `node src/cli.js attach`. |
+| `codex` | `codex exec --approve-for-me -c sandbox_workspace_write.network_access=true -` | Writes only inside the repo and temp folders; Codex's own reviewer approves its requests, including its Chrome tool. Shell commands are not limited, and network access is on because the sandbox otherwise blocks `127.0.0.1`. |
 
 Claude Code + Claude in Chrome is tested end to end. Codex ran its invocation
-through `scripts/poll.sh` against a demo server.
+through the poll runner against a demo server. The Windows task installer and
+runner are checked in CI on Windows; a full poll on Windows is not yet tested.
 
 **What stops a poll from sending.** `node src/cli.js api` refuses the send route
 and every `/api/whatsapp/` route, whichever agent calls it. Claude's allowlist

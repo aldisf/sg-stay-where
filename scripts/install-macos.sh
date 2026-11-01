@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Installs two LaunchAgents for this checkout (macOS only):
 #   sg-stay-where.server  keeps `npm start` running (starts at login, restarts on crash)
-#   sg-stay-where.poll    runs scripts/poll.sh every 2 hours (Claude Code by default)
+#   sg-stay-where.poll    runs one poll every 2 hours (Claude Code by default)
 # Usage: [SSW_AGENT=codex] scripts/install-macos.sh [server|poll|both]   (default: server)
 # Remove: launchctl bootout gui/$(id -u)/sg-stay-where.<server|poll>; rm ~/Library/LaunchAgents/sg-stay-where.*.plist
 set -eu
@@ -46,7 +46,7 @@ if [[ $which == poll || $which == both ]]; then
   env=""
   [[ -n ${SSW_AGENT:-} ]] && env="
   <key>EnvironmentVariables</key><dict><key>SSW_AGENT</key><string>$SSW_AGENT</string></dict>"
-  install_agent sg-stay-where.poll "  <key>ProgramArguments</key><array><string>/bin/zsh</string><string>$repo/scripts/poll.sh</string></array>$env
+  install_agent sg-stay-where.poll "  <key>ProgramArguments</key><array><string>$node</string><string>--no-warnings=ExperimentalWarning</string><string>$repo/src/cli.js</string><string>poll</string></array>$env
   <key>StartCalendarInterval</key><array>$hours</array>
   <key>RunAtLoad</key><false/>
   <key>StandardOutPath</key><string>$repo/data/poll-logs/launchd.log</string>

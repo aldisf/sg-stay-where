@@ -6,11 +6,11 @@ description: Set up, check, change or remove the scheduled job that polls sg-sta
 # Schedule polls
 
 A poll started in a chat stops when the chat ends. The scheduled job runs
-`scripts/poll.sh`, which starts a fresh agent each time. It survives closed
+`npm run poll` (`node src/cli.js poll`), which starts a fresh agent each time. It survives closed
 laptops, reboots and forgotten sessions, and runs a missed poll once on wake.
 
 Ask before creating, changing or removing a job. Run one poll by hand first
-(`zsh scripts/poll.sh`) and check its log in `data/poll-logs/`.
+(`npm run poll`) and check its log in `data/poll-logs/`.
 
 1. **Pick the agent**: `SSW_AGENT=claude` (default) or `codex`. Only Claude
    Code's poll is limited to the tracker's own CLI
@@ -40,7 +40,7 @@ Ask before creating, changing or removing a job. Run one poll by hand first
    Type=oneshot
    WorkingDirectory=<repo>
    Environment=SSW_AGENT=claude
-   ExecStart=/usr/bin/zsh <repo>/scripts/poll.sh
+   ExecStart=/usr/bin/env node --no-warnings=ExperimentalWarning <repo>/src/cli.js poll
    ```
    and `~/.config/systemd/user/sg-stay-where-poll.timer`:
    ```ini
@@ -55,16 +55,20 @@ Ask before creating, changing or removing a job. Run one poll by hand first
    Then `systemctl --user daemon-reload && systemctl --user enable --now sg-stay-where-poll.timer`,
    and check `systemctl --user list-timers`. It runs in the user's desktop
    session, where Chrome is.
-4. **Windows**: not supported. `poll.sh` is zsh, and Poll now runs it too.
+4. **Windows** (PowerShell): `$env:SSW_AGENT = "<agent>"`, then
+   `powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1 poll`
+   (`both` also runs the server, at sign-in, restarted if it stops). Check it with
+   `Get-ScheduledTaskInfo sg-stay-where-poll` (`LastRunTime`, `LastTaskResult`).
+   Tasks run only while the user is signed in, where Chrome is.
 5. **Check it in the app.** The header shows "Polled 2h ago". An amber "Polls
    stalled" means a job exists but nothing ran for 4 hours: look at the newest
    log in `data/poll-logs/`, and check the computer was on and Chrome open.
-6. **Change the agent**: re-run step 2 or edit the service and restart the timer.
+6. **Change the agent**: re-run step 2 or 4, or edit the Linux service and restart the timer.
 7. **Remove**: macOS `launchctl bootout gui/$(id -u)/sg-stay-where.poll` and
    `rm ~/Library/LaunchAgents/sg-stay-where.poll.plist`; Linux
    `systemctl --user disable --now sg-stay-where-poll.timer` and delete the poll
    unit files (`sg-stay-where.service` is the server; remove it only when
-   uninstalling).
+   uninstalling); Windows `Unregister-ScheduledTask sg-stay-where-poll -Confirm:$false`.
 
 Polls on demand only: no job. The header's Poll now button starts one poll in
 the background; the user doesn't need a chat open.

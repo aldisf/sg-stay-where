@@ -1,19 +1,25 @@
 #!/usr/bin/env node
-// ssw serve                 web app (+ WhatsApp when data/whatsapp.json says enabled)
+// ssw serve [--log <file>]  web app (+ WhatsApp when data/whatsapp.json says enabled)
 // ssw whatsapp              link WhatsApp: QR in the terminal (and Preview on macOS)
 // ssw project list|check|new
 // ssw attach <id> listing|maps:<key> <image>
 // ssw api <METHOD> /api/... [json]   the scheduled poll's only way in
 // ssw privacy               what the WhatsApp filter stored, ignored and dropped (counts only)
 // ssw demo                  fictional demo data in data-demo/ (screenshots, trying it out)
+// ssw serve --demo          serve that data on port 7432
+// ssw poll                  one unattended poll with SSW_AGENT (claude or codex)
 import { execFile } from "node:child_process";
-import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Store } from "./db.js";
 import { checkProject, ProjectFiles } from "./projects.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+if (process.argv[2] === "serve" && process.argv.includes("--demo")) {
+  process.env.SSW_DATA_DIR ||= path.join(ROOT, "data-demo");
+  process.env.SSW_PORT ||= "7432";
+}
 const DATA = path.resolve(process.env.SSW_DATA_DIR || path.join(ROOT, "data"));
 const PORT = process.env.SSW_PORT || 7431;
 const log = (level, msg) => console.log(`${new Date().toISOString()} ${level.padEnd(5)} ${msg}`);
@@ -50,11 +56,23 @@ async function showQr(wa) {
     await QRCode.toFile(file, qr, { width: 480, margin: 2 });
     log("info", `QR #${count}: WhatsApp > Settings > Linked devices > Link a device (refreshes every ~20s)`);
     if (process.platform === "darwin") execFile("open", count === 1 ? [file] : ["-g", file], () => {});
+    else if (process.platform === "win32" && count === 1) execFile("cmd", ["/c", "start", "", file], () => {});
   });
   wa.on("changed", () => { if (wa.state === "live") rmSync(file, { force: true }); });
 }
 
 async function serve() {
+  // Background services on Windows have no terminal to write to. Synchronous, so
+  // the last lines before a crash are kept.
+  const logAt = args.indexOf("--log");
+  if (logAt >= 0) {
+    const file = path.resolve(args[logAt + 1]);
+    process.stdout.write = process.stderr.write = (chunk, ...rest) => {
+      appendFileSync(file, chunk);
+      rest.find((a) => typeof a === "function")?.();
+      return true;
+    };
+  }
   const { startServer } = await import("./server.js");
   const store = openStore();
   const useWhatsApp = whatsappSettings().enabled && !args.includes("--no-whatsapp");
@@ -171,7 +189,7 @@ async function demo() {
   const { seedDemo } = await import("./demo.js");
   const dir = path.resolve(process.env.SSW_DATA_DIR || path.join(ROOT, "data-demo"));
   await seedDemo(dir);
-  console.log(`demo data in ${dir}\nrun: SSW_DATA_DIR=${path.relative(process.cwd(), dir) || "."} SSW_PORT=7432 node src/cli.js serve --no-whatsapp`);
+  console.log(`demo data in ${dir}\nrun: npm run demo:serve`);
 }
 
 async function importLegacy() {
@@ -181,8 +199,15 @@ async function importLegacy() {
   console.log(run({ from: path.resolve(from), data: DATA }));
 }
 
+async function poll() {
+  const { poll: run } = await import("./poll.js");
+  // Ctrl-C or a stopped job still removes the lock.
+  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(130));
+  process.exitCode = await run({ root: ROOT });
+}
+
 const command = process.argv[2] ?? "serve";
-const commands = { serve, whatsapp, project, attach, api, privacy, demo, "import-legacy": importLegacy };
+const commands = { serve, whatsapp, project, attach, api, privacy, demo, poll, "import-legacy": importLegacy };
 if (!commands[command]) {
   console.error(`usage: ssw [${Object.keys(commands).join("|")}]`);
   process.exit(2);

@@ -17,8 +17,9 @@
     "project": "node --no-warnings=ExperimentalWarning src/cli.js project",
     "privacy": "node --no-warnings=ExperimentalWarning src/cli.js privacy",
     "demo": "node --no-warnings=ExperimentalWarning src/cli.js demo",
-    "demo:serve": "SSW_DATA_DIR=data-demo SSW_PORT=7432 node --no-warnings=ExperimentalWarning src/cli.js serve --no-whatsapp",
-    "test": "node --no-warnings=ExperimentalWarning --test 'test/*.test.js'",
+    "demo:serve": "node --no-warnings=ExperimentalWarning src/cli.js serve --demo --no-whatsapp",
+    "poll": "node --no-warnings=ExperimentalWarning src/cli.js poll",
+    "test": "node --no-warnings=ExperimentalWarning --test test/*.test.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
   },

@@ -17,6 +17,7 @@ Nothing here can be undone without a backup.
      `rm ~/Library/LaunchAgents/sg-stay-where.*.plist`.
    - Linux: `systemctl --user disable --now sg-stay-where-poll.timer sg-stay-where.service`,
      then delete those unit files in `~/.config/systemd/user/` (or remove a cron line).
+   - Windows: `Unregister-ScheduledTask sg-stay-where-poll, sg-stay-where-server -Confirm:$false`.
    - Stop any `npm start` still running.
 3. **Unlink WhatsApp.** The user does this on their phone: WhatsApp → Settings →
    Linked devices → the sg-stay-where device → Log out.

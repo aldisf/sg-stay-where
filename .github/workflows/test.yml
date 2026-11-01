@@ -1,0 +1,47 @@
+name: test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  unit:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+
+  windows-tasks:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install the scheduled tasks; the server answers and a poll runs
+        shell: powershell
+        run: |
+          $env:SSW_AGENT = "none-such"
+          powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1 both
+          $up = $false
+          for ($i = 0; $i -lt 30 -and -not $up; $i++) {
+            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7431/api/state | Out-Null; $up = $true } catch { Start-Sleep 2 }
+          }
+          Get-Content data\serve.log -ErrorAction SilentlyContinue
+          if (-not $up) { throw "the server task did not start" }
+          Start-ScheduledTask sg-stay-where-poll
+          Start-Sleep 3
+          while ((Get-ScheduledTask sg-stay-where-poll).State -eq "Running") { Start-Sleep 2 }
+          $result = (Get-ScheduledTaskInfo sg-stay-where-poll).LastTaskResult
+          "poll task result: $result"
+          if ($result -ne 2) { throw "expected the poll to stop at the unknown agent (exit 2)" }
+          Unregister-ScheduledTask sg-stay-where-poll, sg-stay-where-server -Confirm:$false

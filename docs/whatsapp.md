@@ -227,12 +227,13 @@ Everything else lives in `data/` on your machine.
 
 ```sh
 # stop the server first (two processes on one session log each other out):
-# Ctrl-C in its terminal, or for the macOS service
-launchctl bootout gui/$(id -u)/sg-stay-where.server
+# Ctrl-C in its terminal, or for the service
+launchctl bootout gui/$(id -u)/sg-stay-where.server   # macOS
+Stop-ScheduledTask sg-stay-where-server                # Windows
 npm run whatsapp      # shows a QR in the terminal (and in Preview on macOS)
 # WhatsApp › Settings › Linked devices › Link a device → scan
 # Ctrl-C once it says "linked", then:
-npm start             # or, for the service: scripts/install-macos.sh server
+npm start             # or scripts/install-macos.sh server; Start-ScheduledTask sg-stay-where-server
 ```
 
 To unlink: the Project tab → "Unlink and show a new QR", or remove the device in

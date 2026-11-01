@@ -26,6 +26,7 @@ import { checkProject, CRITERION_TYPES, criteriaOf, DEALS, mapCriteriaKey, messa
 import { isColiving, scoreListing } from "./score.js";
 import { applyTemplate, DISTRICTS, filtersFromPropertyGuru, newestFirst, POLL_LIMITS } from "./searches.js";
 import { canHashOnServer, photoQueue, photoUrls } from "./photos.js";
+import { POLL_GAP_MIN } from "./poll.js";
 
 import { projectVersion, requestSearchBrief, resolveSearchBrief } from "./search-brief.js";
 
@@ -52,14 +53,17 @@ async function body(req) {
 }
 
 // The scheduled poll's job files (scripts/install-macos.sh, skills/schedule-polls).
-const POLL_GAP_MIN = 20;
 const RECHECK_AFTER_DAYS = 3;
 const SHARE_MAPS_DAYS = 90;
-const POLL_JOBS = [path.join(homedir(), "Library/LaunchAgents/sg-stay-where.poll.plist"), path.join(homedir(), ".config/systemd/user/sg-stay-where-poll.timer")];
+const POLL_JOBS = [
+  path.join(homedir(), "Library/LaunchAgents/sg-stay-where.poll.plist"),
+  path.join(homedir(), ".config/systemd/user/sg-stay-where-poll.timer"),
+  path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "Tasks", "sg-stay-where-poll"),
+];
 
-export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = ["zsh", path.join(root, "scripts/poll.sh")] }) {
+export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = [process.execPath, "--no-warnings=ExperimentalWarning", path.join(root, "src/cli.js"), "poll"] }) {
   let pollChild = null;
-  // poll.sh writes its pid to poll.lock, so a scheduled poll counts too.
+  // The poll writes its pid to poll.lock, so a scheduled poll counts too.
   function pollRunning() {
     if (pollChild) return true;
     try { process.kill(Number(readFileSync(path.join(dataDir, "poll.lock"), "utf8")), 0); return true; } catch { return false; }
@@ -547,7 +551,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       if (mins < POLL_GAP_MIN) throw new HttpError(409, `The last poll started ${mins} min ago. Polls start at least ${POLL_GAP_MIN} minutes apart, so the sites don't see a burst.`);
       writeFileSync(lastFile, String(Math.floor(Date.now() / 1000)));
       const [cmd, ...args] = pollCommand;
-      pollChild = spawn(cmd, args, { cwd: root, env: { ...process.env, SSW_DATA_DIR: dataDir, SSW_PORT: String(server.address().port), SSW_POLL_GAP_CHECKED: "1" }, detached: true, stdio: "ignore" });
+      pollChild = spawn(cmd, args, { cwd: root, env: { ...process.env, SSW_DATA_DIR: dataDir, SSW_PORT: String(server.address().port), SSW_POLL_GAP_CHECKED: "1" }, detached: true, stdio: "ignore", windowsHide: true });
       pollChild.on("exit", () => { pollChild = null; });
       pollChild.on("error", (error) => { log("warn", `poll did not start: ${error.message}`); pollChild = null; });
       pollChild.unref();

@@ -49,8 +49,8 @@ before linking WhatsApp, and before creating scheduled jobs.
 3. **Start it**: `npm start`, open http://127.0.0.1:7431. Everything below that
    calls `/api/...` (search template, intro message, polls) needs it running. It
    reads project files on every request, so writing one needs no restart.
-   Optional: run it as a background service (macOS `scripts/install-macos.sh`;
-   Linux see docs/polling.md).
+   Optional: run it as a background service (macOS `scripts/install-macos.sh`,
+   Windows `scripts/install-windows.ps1`; Linux see docs/polling.md).
 4. **Interview the user** with [docs/setup-interview.md](docs/setup-interview.md):
    project title, renting or buying, budget, home type, the places that matter
    (work, school, gym, hawker centre…), what's a must-have, and the searches.
@@ -82,7 +82,7 @@ before linking WhatsApp, and before creating scheduled jobs.
    to 150), so Review fills up. Then recommend scheduled polls (every 2 hours, independent of any
    chat session) with [skills/schedule-polls](skills/schedule-polls/SKILL.md);
    never set it up unasked. Without it, the header's Poll now button runs one.
-   `scripts/poll.sh` runs Claude Code unless `SSW_AGENT=codex`; set it to the
+   `npm run poll` runs Claude Code unless `SSW_AGENT=codex`; set it to the
    agent the user runs.
 8. **Remote access (optional)**: [docs/remote-access.md](docs/remote-access.md)
    (Tailscale) to use it from a phone.
@@ -234,7 +234,10 @@ Step-by-step guides in `skills/`, for any agent:
   (every 2 h on the hour, and once on wake if one was missed while asleep; logs `data/poll-logs/`; `SSW_AGENT=codex` before the command
   schedules that agent instead of Claude Code). Don't also run `npm start` then: two servers fight
   over the port and the WhatsApp session.
-- `zsh scripts/poll.sh`: one unattended poll now with `SSW_AGENT` (default `claude`).
+- Background services (Windows): `scripts/install-windows.ps1 both` installs scheduled tasks
+  `sg-stay-where-server` (at sign-in, restarted if it stops; logs `data/serve.log`; restart
+  with `Stop-ScheduledTask` then `Start-ScheduledTask`) and `sg-stay-where-poll`.
+- `npm run poll`: one unattended poll now with `SSW_AGENT` (default `claude`).
   Only Claude's tool allowlist confines a poll to `node src/cli.js api|attach`; the
   other agents have a full shell (docs/polling.md "Scheduling").
 - `npm start`: server on http://127.0.0.1:7431 (`SSW_PORT`, `SSW_DATA_DIR` override).

@@ -25,7 +25,7 @@ flowchart LR
 | **Coding agent with a browser tool** | Required for setup and polls | Interviews you and writes the project. Every poll it opens your searches, hands listings to the app, and checks commutes and nearby places on Google Maps. | You can still paste listing links (header box) and use the bookmarklet by hand. Nothing gets scored on Google Maps. |
 | **Google Chrome** | Required | The browser the agent drives. | See "Why your own Chrome" below. |
 | **WhatsApp link** (Baileys) | Optional, **recommended** | Tracks the conversation with each agent: contacted, replied, viewing set, taken. Lets Send in the swipe-right dialog go out directly. | Swipe right still works. Open in WhatsApp hands the same message to your own WhatsApp app. Statuses are then yours to set. |
-| **Scheduled polls** (`scripts/install-macos.sh`, cron) | Optional | Runs a poll every 2 hours. | Say "poll now" to your agent whenever you like. |
+| **Scheduled polls** (`scripts/install-macos.sh`, `scripts/install-windows.ps1`, a systemd timer) | Optional | Runs a poll every 2 hours. | Say "poll now" to your agent whenever you like. |
 | **Tailscale** | Optional | Opens the app from your phone, privately, on your own tailnet. | Use it on the computer it runs on. |
 | **macOS LaunchAgents** | Optional | Keeps the app running in the background and restarts it. | `npm start` in a terminal. |
 

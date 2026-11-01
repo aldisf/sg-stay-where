@@ -156,8 +156,8 @@ Both run without a chat session. Both need the computer on.
 | **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages). 3. Gets details and Google Maps checks for up to 40 listings. 4. Reopens up to 5 older listings to find removed ones. |
 
 Your agent sets up the schedule with [skills/schedule-polls](skills/schedule-polls/SKILL.md):
-a LaunchAgent on macOS, a systemd timer on Linux. Polls start at least 20
-minutes apart, including Poll now. The open app checks for changes every 15 seconds.
+a LaunchAgent on macOS, a systemd timer on Linux, a scheduled task on Windows.
+Polls start at least 20 minutes apart, including Poll now. The open app checks for changes every 15 seconds.
 
 ## Requirements
 
@@ -165,11 +165,10 @@ minutes apart, including Poll now. The open app checks for changes every 15 seco
 | --- | --- | --- |
 | Node.js 22.23.4+ (or 24.22.1+, 26.12.1+) | **Required** | The app (built-in SQLite; no database server). Earlier releases still trust the CAs behind the Oct 2026 eMudhra key compromise; `npm test` checks. |
 | A coding agent with browser automation | **Required** for setup and polls | Listing sites block servers, and Google Maps results are only free in a browser ([docs/browser.md](docs/browser.md)). Claude Code with Claude in Chrome, or Codex with the Codex Chrome extension. |
-| zsh | **Required** for polls | `scripts/poll.sh` is a zsh script. Built into macOS; on Linux, `apt install zsh` or similar. |
 | Google Chrome | **Required** | Pages are loaded in a real Chrome on your computer and connection. |
 | A computer that's on | **Required** for polls and chat tracking | Polls, Chrome and the WhatsApp link run on your machine. Asleep or off, nothing is polled; on wake, a missed poll runs once and WhatsApp catches up. |
 | WhatsApp on your phone | Optional, **recommended** | Chat tracking, viewing times, taken units, one-click send ([docs/whatsapp.md](docs/whatsapp.md)). Unofficial client; see Baileys' notes. |
-| macOS | Optional | `scripts/install-macos.sh` runs the app and the 2-hourly poll as background services. On Linux, a systemd timer. Windows is not supported (polls run a zsh script). |
+| Background services | Optional | Run the app and the 2-hourly poll without a terminal open: `scripts/install-macos.sh` (macOS), `scripts/install-windows.ps1` (Windows) or a systemd timer (Linux). On Windows the installer and poll runner are checked in CI; a full poll there is not yet tested. |
 | Tailscale | Optional | Access from your phone over your private network ([docs/remote-access.md](docs/remote-access.md)). |
 
 Alternatives: if alerts and one commute filter are enough, PropertyGuru alerts and

@@ -57,8 +57,8 @@ forbid bulk extraction.
 
 | Tool | Status |
 | --- | --- |
-| **Claude Code + Claude in Chrome** (`claude --chrome`) | Tested end to end; the default for `scripts/poll.sh`. |
-| **Codex + the Codex Chrome extension** | `scripts/poll.sh` runs it with `SSW_AGENT=codex`. Setup: [polling.md](polling.md#give-the-agent-your-own-chrome). |
+| **Claude Code + Claude in Chrome** (`claude --chrome`) | Tested end to end; the default for `npm run poll`. |
+| **Codex + the Codex Chrome extension** | `npm run poll` runs it with `SSW_AGENT=codex`. Setup: [polling.md](polling.md#give-the-agent-your-own-chrome). |
 | Headless browsers, cloud browsers, server-side fetch, scraping APIs | Blocked by the sites, or another IP; not supported. |
 
 You can also skip automation entirely and use the bookmarklet while browsing,
