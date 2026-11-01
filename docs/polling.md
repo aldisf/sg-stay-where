@@ -301,7 +301,10 @@ Listings beyond what this run checks wait for the next polls, oldest first.
   asleep). The browser needs a desktop session with Chrome running.
 - **Windows**: `scripts/install-windows.ps1 poll` (a scheduled task every 2 hours
   on the hour, while you're signed in). Set `$env:SSW_AGENT = "codex"` first to
-  schedule Codex.
+  schedule Codex. The installer captures the selected agent and the directories
+  containing Node and the agent, for both scheduled polls and the server's Poll
+  now button. It does not install or sign in to a missing agent; verify a manual
+  poll before scheduling.
 - **By hand**: `npm run poll` runs one poll now, the same way.
 
 Setting up, checking or removing the job: [skills/schedule-polls](../skills/schedule-polls/SKILL.md).
@@ -347,6 +350,16 @@ If you schedule Codex, consider leaving WhatsApp unlinked.
 
 Each agent needs a browser tool attached to a real Chrome on your computer. You set
 this up once in the agent's own settings; the repo never changes them.
+
+Validate that connection in the actual unattended CLI before installing a poll
+schedule: run `npm run poll`, then read its report and error log in
+`data/poll-logs/`. Confirm it read a search or explicitly encountered a portal
+challenge. Exit code 0 alone is not proof: an agent can report missing browser
+access, record skipped searches, and exit successfully. A working extension in
+a desktop chat does not establish browser access for a separate CLI process.
+If the CLI reports browser access disabled or unavailable, do not schedule that
+CLI. Use a browser-capable agent or run the workflow in the desktop chat instead;
+do not enable broader access or substitute a headless browser to work around it.
 
 - **Claude Code**: install Claude in Chrome; `--chrome` turns it on.
 - **Codex**: install the ChatGPT desktop app and the Codex Chrome extension.
