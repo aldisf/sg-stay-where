@@ -71,7 +71,8 @@ before linking WhatsApp, and before creating scheduled jobs.
 6. **WhatsApp (optional, recommended)**: always offer it, and recommend it. Say
    what it adds and the caveats (docs/setup-interview.md section 6 has the
    points), then ask whether to link it now. Only if the user agrees: stop the
-   server, ask the user to run `npm run whatsapp` in their own terminal and scan
+   server ([docs/whatsapp.md](docs/whatsapp.md#link-it) has the command for the
+   macOS service), ask the user to run `npm run whatsapp` in their own terminal and scan
    the QR, then `npm start` again. If they decline, say Copy message and Open in
    WhatsApp still work, and that they can link it any time. Ask who they will
    share listing links with (partner, family) and put those names in
@@ -233,24 +234,24 @@ Step-by-step guides in `skills/`, for any agent:
   (every 2 h on the hour, and once on wake if one was missed while asleep; logs `data/poll-logs/`; `SSW_AGENT=codex` before the command
   schedules that agent instead of Claude Code). Don't also run `npm start` then: two servers fight
   over the port and the WhatsApp session.
-- `zsh scripts/poll.sh` — one unattended poll now with `SSW_AGENT` (default `claude`).
+- `zsh scripts/poll.sh`: one unattended poll now with `SSW_AGENT` (default `claude`).
   Only Claude's tool allowlist confines a poll to `node src/cli.js api|attach`; the
   other agents have a full shell (docs/polling.md "Scheduling").
-- `npm start` — server on http://127.0.0.1:7431 (`SSW_PORT`, `SSW_DATA_DIR` override).
+- `npm start`: server on http://127.0.0.1:7431 (`SSW_PORT`, `SSW_DATA_DIR` override).
   With another port, give `node src/cli.js api|attach` the same `SSW_PORT` and
   use that port in the `/import#` URL; docs say 7431 for the default.
   WhatsApp starts only when `data/whatsapp.json` has `"enabled": true`.
-- `npm run whatsapp` — link WhatsApp (QR in the terminal; Preview on macOS). Stop the
+- `npm run whatsapp`: link WhatsApp (QR in the terminal; Preview on macOS). Stop the
   server first: two processes on one session log each other out.
-- `npm run privacy` — what the WhatsApp filter stored, ignored and dropped; counts, no text.
+- `npm run privacy`: what the WhatsApp filter stored, ignored and dropped; counts, no text.
 - `npm run project -- list | check <id|file> | new "<title>" [--copy <id>]`
-- `node src/cli.js api <METHOD> /api/...` — the poll's only door (local, no sends).
-- `node src/cli.js attach <id> listing|maps:<key> <image>` — attach a screenshot.
+- `node src/cli.js api <METHOD> /api/...`: the poll's only door (local, no sends).
+- `node src/cli.js attach <id> listing|maps:<key> <image>`: attach a screenshot.
   Direct `node src/cli.js` calls print a harmless SQLite ExperimentalWarning on
   stderr; `node --no-warnings=ExperimentalWarning src/cli.js …` hides it.
-- `npm run demo` then `npm run demo:serve` — fictional data on port 7432.
-- `npm test` — unit and HTTP asset tests.
-- `npm run test:e2e` — isolated fictional servers on ports 17432 onward; Chromium and WebKit. See `docs/testing.md`.
+- `npm run demo` then `npm run demo:serve`: fictional data on port 7432.
+- `npm test`: unit and HTTP asset tests.
+- `npm run test:e2e`: isolated fictional servers on ports 17432 onward; Chromium and WebKit. See `docs/testing.md`.
 
 ## Code map
 

@@ -51,7 +51,7 @@ Captchas or browser disconnection can delay sourcing.
     "minPrice": 2500, "maxPrice": 3500,
     "bedrooms": [0, 1, 2], "wholeUnit": true, "districts": ["D03", "D05"]
   },
-  "sites": ["propertyguru", "99co"], "pages": 2,
+  "sites": ["propertyguru", "99co", "carousell"], "pages": 2,
   "explanation": "Whole studio to 2BR in D03/D05, up to S$3,500. The commute remains a scored requirement.",
   "project": {
     "budget": {"min": 2500, "max": 3300, "stretchMax": 3500, "spread": 300}
@@ -104,8 +104,8 @@ the search on the site itself:
 1. Open the portal in the user's Chrome and set the filters by hand, or ask the
    user to. Copy the address bar.
 2. `POST /api/projects/:id/searches {"title": "PropertyGuru · HDB near Bishan", "url": "<copied>", "pages": 2}`.
-   The server adds the newest-first sort (polls read the first two pages only),
-   caps pages at 2 and refuses non-portal URLs.
+   The server adds the newest-first sort (polls read the first pages only),
+   accepts 1–5 pages and refuses non-portal URLs.
 3. Run the extractor on that page once to confirm it returns cards
    (`r.listings.length > 0`).
 
@@ -120,7 +120,7 @@ covers pages whose data moved.
 
 Signs: a template search returns `no listing cards found`, or results ignore a
 filter (prices outside the range, other districts). The compiler is the single
-place that writes portal URLs: `src/searches.js` (`propertyguru()`, `n99()`).
+place that writes portal URLs: `src/searches.js` (`propertyguru()`, `n99()`, `carousell()`).
 
 1. Set the same filters by hand on the portal and compare its URL with the one
    the compiler wrote.
@@ -130,6 +130,7 @@ place that writes portal URLs: `src/searches.js` (`propertyguru()`, `n99()`).
 
 Extractors break the same way when a page's embedded data moves:
 `browser/propertyguru.js` reads `__NEXT_DATA__`, `browser/99co.js` reads JSON-LD,
-card text and the agent block in the page's script data. Fix the extractor
+card text and the agent block in the page's script data, `browser/carousell.js`
+reads the listing page's JSON-LD and the agent's CEA block. Fix the extractor
 against the live page in the user's browser; never fetch portal pages from the
 server.

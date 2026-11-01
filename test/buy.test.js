@@ -64,7 +64,7 @@ test("a sourcing plan for a buying project carries the searches the agent built"
 });
 
 test("the buyer's intro has no monthly rent, and names financing and timing", () => {
-  const listing = { source: "propertyguru", building: "138D Yuan Ching Road", bedrooms: 3, price: 758000, url: "https://www.propertyguru.com.sg/listing/hdb-for-sale-138d-yuan-ching-road-500291374", agent_name: "Rachel Tan" };
+  const listing = { source: "propertyguru", building: "100A Example Road", bedrooms: 3, price: 758000, url: "https://www.propertyguru.com.sg/listing/hdb-for-sale-100a-example-road-500000901", agent_name: "Rachel Tan" };
   const text = composeIntro({ deal: "buy", name: "Alex", household: "Couple, first home", residency: "Singapore citizens", financing: "HDB loan, HFE letter ready", moveIn: "Within 6 months", closing: "Could we view it this week?", budget: { min: 600000, max: 800000, stretchMax: 820000, spread: 20000, roundTo: 1000 } }, listing);
   assert.doesNotMatch(text, /\/month/);
   assert.match(text, /\(S\$758,000\)/);
@@ -75,8 +75,8 @@ test("the buyer's intro has no monthly rent, and names financing and timing", ()
 });
 
 test("sale listing links count for the WhatsApp filter, and sold means taken", () => {
-  assert.equal(findPropertyLinks("hi https://www.propertyguru.com.sg/listing/hdb-for-sale-138d-yuan-ching-road-500291374")[0].listingKey, "propertyguru:500291374");
-  assert.equal(findPropertyLinks("https://www.99.co/singapore/sale/property/477b-upper-serangoon-view-hdb-8KNzTEcjzikHTsrFBvG8Rb")[0].source, "99co");
+  assert.equal(findPropertyLinks("hi https://www.propertyguru.com.sg/listing/hdb-for-sale-100a-example-road-500000901")[0].listingKey, "propertyguru:500000901");
+  assert.equal(findPropertyLinks("https://www.99.co/singapore/sale/property/100b-example-view-hdb-8KNzExampleHdbView0001")[0].source, "99co");
   const me = (ts, text) => ({ ts, text, from_me: true });
   const agent = (ts, text) => ({ ts, text, from_me: false });
   for (const text of ["Sorry, it's sold", "The unit has been sold", "Sold already", "Owner has granted the option to another buyer", "OTP exercised yesterday"]) {

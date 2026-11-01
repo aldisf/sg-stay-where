@@ -31,10 +31,7 @@ summary loses the reason for an earlier closure. The ledger preserves that reaso
 without copying every raw message or introducing event sourcing. The app shows
 only the newest reading per home (one Latest block in the detail sheet, "New"
 on the Enquiries row); earlier readings stay in the ledger, off screen. The bounded
-feed and opaque read keys came from the derived alternative. Independent review
-favoured this shape and exposed merge/privacy and attribution cases now covered
-by tests. The attempted cross-family design review timed out; no consensus across
-model families is claimed.
+feed and opaque read keys came from the derived alternative.
 
 Property-link segments scope both display and decision evidence. Ignoring,
 unlinking or deleting a source message erases copied interpretations; merged

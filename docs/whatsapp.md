@@ -59,8 +59,8 @@ Privacy filter (`src/whatsapp.js`):
   listing the tracker already holds, appears **within its first
   10 messages** (`maxMessagesBeforeLink`). That is a conversation that started
   about a listing. A friend who once forwards a link is not one.
-- Names in `data/whatsapp.json` `excludeNames` are never read, even with a link —
-  put the people you share listings with there (partner, family).
+- Names in `data/whatsapp.json` `excludeNames` are never read, even with a link.
+  Put the people you share listings with there (partner, family).
 - Every other message is checked for a link in memory and dropped. Nothing else
   is written to disk.
 - Listing-site enquiry bots (PropertyGuru's and 99.co's) are recognised and don't
@@ -226,11 +226,13 @@ Everything else lives in `data/` on your machine.
 ## Link it
 
 ```sh
-# stop the server first (two processes on one session log each other out)
+# stop the server first (two processes on one session log each other out):
+# Ctrl-C in its terminal, or for the macOS service
+launchctl bootout gui/$(id -u)/sg-stay-where.server
 npm run whatsapp      # shows a QR in the terminal (and in Preview on macOS)
 # WhatsApp › Settings › Linked devices › Link a device → scan
 # Ctrl-C once it says "linked", then:
-npm start
+npm start             # or, for the service: scripts/install-macos.sh server
 ```
 
 To unlink: the Project tab → "Unlink and show a new QR", or remove the device in
@@ -243,8 +245,7 @@ WhatsApp › Linked devices. To turn it off: `"enabled": false` in
 {
   "enabled": true,
   "excludeNames": ["Partner Name", "Mum"],
-  "maxMessagesBeforeLink": 10,
-  "sendPolicy": { "minIntervalSec": 45, "maxPerDay": 20 }
+  "maxMessagesBeforeLink": 10
 }
 ```
 
@@ -266,10 +267,10 @@ WhatsApp › Linked devices. To turn it off: `"enabled": false` in
   avoiding bans (e.g. [WAHA's](https://waha.devlike.pro/docs/overview/how-to-avoid-blocking/))
   advise only replying, never initiating, and note that being reported as spam a
   handful of times gets numbers banned. An intro to a property agent *is* a first
-  message — to someone who published their number for exactly these enquiries,
+  message: to someone who published their number for exactly these enquiries,
   but a first message nonetheless.
-- What this tool does about it: it never sends on its own; you click Send twice
-  per message; the same message never goes twice to one agent; one intro per
+- What this tool does about it: it never sends on its own; you press Send for
+  each message, after seeing it; the same message never goes twice to one agent; one intro per
   listing you chose; the poll's API client refuses the send route. **Do not loop
   over listings, and do not use it to message anyone who isn't a listing's agent.**
 - If WhatsApp restricts your account: stop sending, don't re-link repeatedly, and

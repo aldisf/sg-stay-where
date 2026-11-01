@@ -55,7 +55,7 @@ data in tabular numerals, icons that carry meaning.
 
 - **Primary task**: decide on new listings (Review) and follow up on the ones you
   chose (Watching, Enquiries).
-- **Anchor**: the listing card — photo, price, then the criteria chips.
+- **Anchor**: the listing card (photo, price, then the criteria chips).
 - **References**: Airbnb's map + list split (density, pill price markers), Linear
   and Things for calm neutral surfaces, Tinder-style swipe for the review deck, and
   iOS Mail-style swipe-to-remove for list rows.
@@ -105,15 +105,15 @@ Radius 14px (cards), 9px (inputs), pills 999px. Shadows only for floating things
 
 ## Components
 
-- **Criteria chips** — one per project criterion: Lucide icon + short value.
+- **Criteria chips**: one per project criterion (Lucide icon + short value).
   `ok` ink on surface-2; `miss` amber dashed; `unknown` faint dashed "?"; `plain`
   (scored, not a must-have) outlined. Labelled grid (3 columns, 2 on phones) in the
   deck and sheet; must-haves only in the Watching list.
-- **Score tag** — ink square with the score; accent when every must-have is met.
-- **Review deck** — one card on top, the next peeking under it; drag shows a
+- **Score tag**: ink square with the score; accent when every must-have is met.
+- **Review deck**: one card on top, the next peeking under it; drag shows a
   WATCH / NOT INTERESTED stamp with the drag distance; buttons and ←/→ do the same.
   Toast with Undo for every decision.
-- **Watching row** — photo, price, status pill (Watching, Contacted, Agent replied,
+- **Watching row**: photo, price, status pill (Watching, Contacted, Agent replied,
   Viewing set…), name, must-have chips, lead line. The row shows where the home
   stands, never an action button. Removing is a two-stage swipe left (touch or
   mouse drag): the card slides over a red zone (`#c53030`, white trash icon); past
@@ -122,10 +122,10 @@ Radius 14px (cards), 9px (inputs), pills 999px. Shadows only for floating things
   the toast). Releasing earlier springs back and saves nothing. Right drags and
   rows already Not interested only give a little. On desktop the detail sheet's
   Not interested button is the non-gesture path.
-- **Map pins** — white pills "score $price"; focused/top card accent-filled; viewing
+- **Map pins**: white pills "score $price"; focused/top card accent-filled; viewing
   booked ink-filled; commute places as cream labels with their icon; amenities of
   the open listing as small accent circles.
-- **Map detail switch** — a MapLibre control above the zoom buttons, building icon
+- **Map detail switch**: a MapLibre control above the zoom buttons, building icon
   + "Detailed", accent-filled when on (`aria-pressed`). Simple (positron/dark)
   keeps pins readable; Detailed (liberty) adds building footprints, POIs, road
   names and HDB block numbers (an added `housenumber` symbol layer from the
@@ -135,11 +135,11 @@ Radius 14px (cards), 9px (inputs), pills 999px. Shadows only for floating things
   DOM markers and survive the swap; style-dependent layers are re-added on
   `style.load`. OneMap was rejected (its terms require developer registration for
   web apps) and satellite imagery for licensing.
-- **Search cards** — title, site tag, last poll, switch (accent when on).
-- **Detail sheet** — native modal dialog, right sheet (full screen on phones), carousel + nested lightbox,
+- **Search cards**: title, site tag, last poll, switch (accent when on).
+- **Detail sheet**: native modal dialog, right sheet (full screen on phones), carousel + nested lightbox,
   actions row, criteria grid, score breakdown, one Latest block, chat thread. Focus stays in the
   open dialog; Escape and browser Back close it and restore focus to the opener.
-- **Filters** — name, area or agent search, existing criteria switches and sort.
+- **Filters**: name, area or agent search, existing criteria switches and sort.
   Collapsed behind "Filter & sort" on phones; expanded on desktop. Always show
   one result line beside them ("6 shown", "2 of 6 to review") and Reset filters
   (back to the defaults) when filters differ from them. Chips stay label-only:
@@ -148,7 +148,7 @@ Radius 14px (cards), 9px (inputs), pills 999px. Shadows only for floating things
   the header's "N to review" count what the deck will show with the current search
   and filters. Empty states distinguish a filtered result (with how many are
   waiting behind the filters) from an empty watch list or unfinished checks.
-- **Connection status** — failed refreshes keep loaded listings visible and offer
+- **Connection status**: failed refreshes keep loaded listings visible and offer
   Retry. A failed initial load preserves the app shell.
 
 

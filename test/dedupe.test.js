@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { hiddenByUser, pickPrimary, sameListing, sameUnit } from "../src/dedupe.js";
 
-const rv = (id, over = {}) => ({ id, building: "RV Edge", price: 3300, bedrooms: 1, sqft: 366, lat: 1.29487, lng: 103.82812, ...over });
+const rv = (id, over = {}) => ({ id, building: "Example Suites", price: 3300, bedrooms: 1, sqft: 366, lat: 1.29487, lng: 103.82812, ...over });
 
 test("the same flat from another agent is a repeat", () => {
-  assert.equal(sameUnit(rv(60), rv(96, { agent_name: "Gibson Ho" })), true);
+  assert.equal(sameUnit(rv(60), rv(96, { agent_name: "Agent B" })), true);
 });
 
 test("a different unit type in the same building is not", () => {

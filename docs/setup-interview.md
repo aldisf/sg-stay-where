@@ -39,7 +39,7 @@ user already told you. Never invent answers; leave a field out instead.
 
 Each becomes a criterion and an icon on every card.
 
-**Regular trips** (type `commute`) — work, school, a partner's office, parents:
+**Regular trips** (type `commute`): work, school, a partner's office, parents:
 
 - Label ("Office", "Partner's office", "School"), the address, and when they leave
   (`departAt`, e.g. "08:30"; Google Maps transit uses the next weekday at that time).
@@ -51,12 +51,12 @@ Each becomes a criterion and an icon on every card.
   whose URL has no `!3d…!4d…`: open the matching result, or go to
   `/maps/place/<full address>` directly, and read the coordinates from that URL.
 
-**The train** (type `station`): ask all three — the nearest MRT/LRT within how
+**The train** (type `station`): ask all three: the nearest MRT/LRT within how
 many minutes (`maxMinutes`, default 15), the longest walk to it in metres
 (`maxWalkMeters`, default 1000), and does a short bus ride count instead
 (`allowBus`, default yes)?
 
-**Everyday places nearby** (type `nearby`) — walking time to the nearest one:
+**Everyday places nearby** (type `nearby`): walking time to the nearest one:
 
 | Common choice | `search` (Google Maps) | `match` (name filter) | icon |
 | --- | --- | --- | --- |
@@ -99,15 +99,15 @@ written:
 
 ```sh
 node src/cli.js api PUT /api/projects/<id>/templates/main \
-  '{"filters":{"minPrice":2500,"maxPrice":3600,"bedrooms":[0,1,2],"wholeUnit":true,"districts":["D01","D02","D09"]},"sites":["propertyguru","99co"],"pages":2}'
+  '{"filters":{"minPrice":2500,"maxPrice":3600,"bedrooms":[0,1,2],"wholeUnit":true,"districts":["D01","D02","D09"]},"sites":["propertyguru","99co","carousell"],"pages":2}'
 ```
 
 The user can also give a plain-language brief; use the revisioned plan API in
 [docs/sourcing.md](sourcing.md) to apply it with the scoring criteria.
 
-99.co has no district filter, so its search covers all of Singapore and the
-extractor keeps only the template's districts (by postal code), within the same
-two-page limit. The same flat found on both sites is kept once.
+99.co and Carousell have no district filter, so their searches cover all of
+Singapore and the extractor keeps only the template's districts (by postal
+code), within the same page limit. The same flat found on several sites is kept once.
 
 **Buying**: the template only builds rental searches. Build one search per site
 with [skills/build-search](../skills/build-search/SKILL.md): set the site's own
@@ -117,7 +117,7 @@ tenure), check page 1 with the site's reader, and save the address bar. Give a
 
 For anything the template can't express (an MRT line, a property type, a
 keyword), build the search **on the site, in the browser**, and add the address
-bar as a search. The server sorts it newest first and caps it at two pages:
+bar as a search. The server sorts it newest first; `pages` is 1–5 (default 2):
 
 ```sh
 node src/cli.js api POST /api/projects/<id>/searches \
@@ -149,10 +149,10 @@ Always offer it and recommend it, then let the user decide. Say:
    clients, and accounts that message in bulk get restricted. This tool sends
    only what the user clicks, never the same message twice to one agent, and
    never replies on its own.
-- Privacy: only chats that start with a PropertyGuru/99.co link (or a Carousell
-  link to a listing already tracked) are stored.
-- **Who will you share listing links with?** (partner, family, friends) → their
-  WhatsApp names go in `excludeNames`, so their chats are never read.
+3. **Privacy.** Only chats that start with a PropertyGuru/99.co link (or a Carousell
+   link to a listing already tracked) are stored.
+4. **Who will you share listing links with?** (partner, family, friends) → their
+   WhatsApp names go in `excludeNames`, so their chats are never read.
 
 Then ask: "Link WhatsApp now?" Only on a yes: they run `npm run whatsapp` in
 their own terminal and scan, then `npm start`. On a no, Copy message and Open in

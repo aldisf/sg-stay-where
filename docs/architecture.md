@@ -50,7 +50,7 @@ flowchart LR
 
 Claude in Chrome and the Codex Chrome extension drive a real Chrome on your computer and can run JavaScript in the
 page. The extractors (`browser/propertyguru.js`, `browser/99co.js`,
-`browser/googlemaps.js`) read the structured data a page already carries:
+`browser/carousell.js`, `browser/googlemaps.js`) read the structured data a page already carries:
 PropertyGuru's `__NEXT_DATA__`, 99.co's JSON-LD and agent block, and Google Maps'
 route panel. That makes a poll exact, repeatable and cheap in tokens. A field is
 either there or reported missing. The agent does not have to guess from pixels.
@@ -106,7 +106,7 @@ text. Details and tests: [docs/whatsapp.md](whatsapp.md#how-the-filter-works-in-
 | `data/sg-stay-where.sqlite` | Listings, scores, Google Maps results, property chats. |
 | `data/projects/<id>.json` | Your criteria, searches, intro message. Written by the setup interview. |
 | `~/.config/sg-stay-where/<id>/whatsapp-auth/` | The linked-device session, outside the project on purpose. Treat it like a password. |
-| `data/whatsapp.json` | WhatsApp on/off, `excludeNames`, send limits. |
+| `data/whatsapp.json` | WhatsApp on/off, `excludeNames`, `maxMessagesBeforeLink`. |
 | `browser/` | Extractors that run inside the listing sites and Google Maps. |
 | `scripts/poll-prompt.md` | What a scheduled poll does, step by step. |
 

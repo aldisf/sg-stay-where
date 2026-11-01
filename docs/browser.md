@@ -12,9 +12,9 @@ Instead:
 
 1. Your agent opens a search or listing page **in your Chrome** with a browser
    tool (Claude in Chrome, or Codex's Chrome extension).
-2. A small extractor (`browser/propertyguru.js`, `browser/99co.js`) reads the
-   data already on the page (PropertyGuru's embedded page data, 99.co's
-   structured data) with photos, facts and the agent's number. Signing in is not
+2. A small extractor (`browser/propertyguru.js`, `browser/99co.js`,
+   `browser/carousell.js`) reads the data already on the page (PropertyGuru's
+   embedded page data, 99.co's and Carousell's structured data) with photos, facts and the agent's number. Signing in is not
    needed: 99.co masks the number on screen until you click, but its page data
    carries the agent's WhatsApp number for signed-out visitors too (checked Oct
    2026 with a request that sent no cookies). PropertyGuru's page data carries

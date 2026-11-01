@@ -40,7 +40,8 @@ The problems it solves:
   to and your must-haves, and saves them as a project. Each listing gets a 0–100
   score and one icon per criterion.
 - **Listing search.** Your saved PropertyGuru, 99.co and Carousell searches run
-  in your own Chrome every 2 hours. You can switch each search on and off.
+  in your own Chrome every 2 hours once scheduled, or on Poll now. You can
+  switch each search on and off.
 - **Google Maps checks.** Transit time to each place you commute to, at your
   departure time; walking time to the MRT, or the bus; and the nearest gym,
   hawker centre, laundromat or other place you chose.
@@ -87,9 +88,10 @@ screen.</sub>
 
 ## Setup
 
-You need [Claude Code](https://claude.com/claude-code) with
+You need Node.js 22.23.4+ ([Requirements](#requirements)) and
+[Claude Code](https://claude.com/claude-code) with
 [Claude in Chrome](https://claude.com/chrome), or [Codex](https://github.com/openai/codex)
-with the Codex Chrome extension. Browser setup for each:
+with the ChatGPT desktop app and its Codex Chrome extension. Browser setup for each:
 [docs/polling.md](docs/polling.md#give-the-agent-your-own-chrome).
 
 ```sh
@@ -153,8 +155,9 @@ Both run without a chat session. Both need the computer on.
 | **App server** (background service) | Always running | Serves the app. With WhatsApp linked, stores property-chat messages as they arrive and marks replies, viewing times and "may be taken". |
 | **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages). 3. Gets details and Google Maps checks for up to 40 listings. 4. Reopens up to 5 older listings to find removed ones. |
 
-Polls start at least 20 minutes apart, including Poll now. The open app checks
-for changes every 15 seconds.
+Your agent sets up the schedule with [skills/schedule-polls](skills/schedule-polls/SKILL.md):
+a LaunchAgent on macOS, a systemd timer on Linux. Polls start at least 20
+minutes apart, including Poll now. The open app checks for changes every 15 seconds.
 
 ## Requirements
 
@@ -162,10 +165,11 @@ for changes every 15 seconds.
 | --- | --- | --- |
 | Node.js 22.23.4+ (or 24.22.1+, 26.12.1+) | **Required** | The app (built-in SQLite; no database server). Earlier releases still trust the CAs behind the Oct 2026 eMudhra key compromise; `npm test` checks. |
 | A coding agent with browser automation | **Required** for setup and polls | Listing sites block servers, and Google Maps results are only free in a browser ([docs/browser.md](docs/browser.md)). Claude Code with Claude in Chrome, or Codex with the Codex Chrome extension. |
+| zsh | **Required** for polls | `scripts/poll.sh` is a zsh script. Built into macOS; on Linux, `apt install zsh` or similar. |
 | Google Chrome | **Required** | Pages are loaded in a real Chrome on your computer and connection. |
 | A computer that's on | **Required** for polls and chat tracking | Polls, Chrome and the WhatsApp link run on your machine. Asleep or off, nothing is polled; on wake, a missed poll runs once and WhatsApp catches up. |
 | WhatsApp on your phone | Optional, **recommended** | Chat tracking, viewing times, taken units, one-click send ([docs/whatsapp.md](docs/whatsapp.md)). Unofficial client; see Baileys' notes. |
-| macOS | Optional | `scripts/install-macos.sh` runs the app and the 2-hourly poll as background services. On Linux use cron/systemd; on Windows run it by hand. |
+| macOS | Optional | `scripts/install-macos.sh` runs the app and the 2-hourly poll as background services. On Linux, a systemd timer. Windows is not supported (polls run a zsh script). |
 | Tailscale | Optional | Access from your phone over your private network ([docs/remote-access.md](docs/remote-access.md)). |
 
 Alternatives: if alerts and one commute filter are enough, PropertyGuru alerts and
@@ -247,7 +251,8 @@ step. More in [docs/whatsapp.md](docs/whatsapp.md#reading-and-sending).
 ## Privacy
 
 - Everything is stored in `data/` on your machine (gitignored): the SQLite
-  database, project files, screenshots, the WhatsApp session.
+  database, project files, screenshots. The WhatsApp session keys are kept
+  outside the repo, in `~/.config/sg-stay-where/`.
 - The server binds to `127.0.0.1`. Remote access only through an authenticated
   tunnel with an allow-list of accounts.
 - WhatsApp: only one-to-one chats that start with a PropertyGuru/99.co link, or a
@@ -297,8 +302,9 @@ use bot protection (Cloudflare). Many page loads from one browser trigger a
 3. **Bot checks.** A poll waits up to 30 s for a Cloudflare page to clear by
    itself, otherwise skips that site until the next poll. It never clicks through
    a check or works around a block.
-4. **Google Maps.** Maps checks don't load the listing sites, so each poll checks
-   up to 40 listings (150 if you set it).
+4. **Listing pages.** Each poll opens up to 40 listings for their details (150
+   if you set it) and rechecks up to 5 older ones. Google Maps checks don't load
+   the listing sites.
 
 Use it for your own home search only. Don't run it as a service, republish
 listings or increase the limits.

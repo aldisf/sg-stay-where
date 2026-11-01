@@ -55,7 +55,7 @@ Ask before creating, changing or removing a job. Run one poll by hand first
    Then `systemctl --user daemon-reload && systemctl --user enable --now sg-stay-where-poll.timer`,
    and check `systemctl --user list-timers`. It runs in the user's desktop
    session, where Chrome is.
-4. **Windows**: not supported (`poll.sh` is zsh). Use Poll now in the app.
+4. **Windows**: not supported. `poll.sh` is zsh, and Poll now runs it too.
 5. **Check it in the app.** The header shows "Polled 2h ago". An amber "Polls
    stalled" means a job exists but nothing ran for 4 hours: look at the newest
    log in `data/poll-logs/`, and check the computer was on and Chrome open.

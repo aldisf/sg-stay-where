@@ -83,8 +83,7 @@ worker in one 954,516-byte script (250,585 gzipped), so a cold load now transfer
 
 There were no response or content mismatches. This is a 73.4% reduction in the
 map script's response body. Headers, TLS and external map tiles are excluded. It is
-not a page-load timing result. The workstation was under heavy load, so no
-latency improvement is claimed. Compression runs asynchronously once per file
+not a page-load timing result. Compression runs asynchronously once per file
 revision; the cache retains at most 32 assets of up to 2 MB each. APIs and
 private media retain `no-store`.
 
