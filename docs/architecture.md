@@ -29,7 +29,7 @@ flowchart LR
 | **Tailscale** | Optional | Opens the app from your phone, privately, on your own tailnet. | Use it on the computer it runs on. |
 | **macOS LaunchAgents** | Optional | Keeps the app running in the background and restarts it. | `npm start` in a terminal. |
 
-## Why your own Chrome, not a server scraper
+## Why it uses your Chrome
 
 1. **Listing sites block servers.** PropertyGuru, 99.co and Carousell sit behind Cloudflare.
    A request from a script, a datacenter IP or a headless browser gets a `403` or a
@@ -46,7 +46,7 @@ flowchart LR
    the app through `http://127.0.0.1:7431/import#…`, and the data rides in the
    URL fragment, which never leaves your machine.
 
-### Why a browser tool that runs JavaScript, rather than screenshots
+### Why page scripts instead of screenshots
 
 Claude in Chrome and the Codex Chrome extension drive your real, signed-in Chrome and can run JavaScript in the
 page. The extractors (`browser/propertyguru.js`, `browser/99co.js`,
@@ -60,7 +60,7 @@ but it is slower and reads numbers off images. Headless browser frameworks
 (Playwright, Puppeteer) are what the sites block. They are used here only for
 the app's own tests against fictional data.
 
-## The agent's door into the app
+## Agent access to the app
 
 A poll talks to the app through `node src/cli.js api`, a local client that
 refuses the send route. The agent can:
@@ -80,7 +80,7 @@ this client by instruction (see
 swipe-right dialog. Review is your swipe. See the hard rules in
 [AGENTS.md](../AGENTS.md).
 
-## WhatsApp: what gets stored
+## What WhatsApp stores
 
 The WhatsApp client sees every message your phone syncs, so the filter sits in
 code before anything is written:

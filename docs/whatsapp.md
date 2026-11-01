@@ -18,7 +18,7 @@ optional; everything else works without it. Linked, it adds:
   when you press Send. Without the link, Open in WhatsApp starts the
   chat in your own WhatsApp with the same message.
 
-## Read and summarise, never reply
+## Reading and sending
 
 On each run your coding agent reads the property chats that changed since its
 last read and writes one state per home through `PUT /api/listings/:id/summary`:
@@ -148,7 +148,7 @@ One limit: the 10 messages are counted from the oldest message WhatsApp
 delivers. If it sends only the recent part of an old chat, the count starts
 there. That is why the people you share listings with belong in `excludeNames`.
 
-#### Check it yourself
+#### Verify it
 
 `npm run privacy` reads the database and prints what the filter let in. It
 prints positions, link hosts and counts, never message text, names or numbers.
@@ -186,7 +186,7 @@ name, held history after the sync window, a late long lead-in, edits and
 deletions, and a person seen under two addresses. It also checks that an agent
 chat is stored, and that the API answers 404 for a chat that is not one.
 
-#### A second layer for Claude Code
+#### Claude Code permission rules
 
 The boundary above is the one that matters. Only gated chats are ever written
 to disk, so there is nothing else for an agent to read; a search over `data/`
@@ -248,7 +248,7 @@ WhatsApp › Linked devices. To turn it off: `"enabled": false` in
 }
 ```
 
-## Risks — read before linking
+## Risks
 
 > [!WARNING]
 > Baileys is not WhatsApp. In its maintainers' words: "This project is not

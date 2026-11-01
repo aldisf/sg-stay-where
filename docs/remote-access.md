@@ -22,7 +22,7 @@ Then tell the server which host name and which Tailscale accounts to accept, in
 
 Restart the server. Requests through `tailscale serve` carry the signed-in
 user's login (`Tailscale-User-Login`); anyone not listed gets `403`. The app is
-then reachable only by your own devices on your tailnet — not the internet.
+then reachable only by your own devices on your tailnet, not the internet.
 
 Notes:
 

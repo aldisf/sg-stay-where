@@ -36,7 +36,7 @@ the search and never works around it.
 It is still automated access to someone else's website; their terms apply (see
 the README's "Risks and responsible use").
 
-## Google Maps answers the questions that matter
+## Google Maps in the browser
 
 Straight-line distance says little about Singapore commutes. A flat 2 km from
 the office can be 12 minutes by MRT or 40 with two transfers. In your browser,
@@ -48,7 +48,7 @@ Google Maps gives:
 - **The nearest gym/hawker centre/laundromat** for each "nearby" criterion, with a
   routed walking time.
 
-No API key, no billing account — it's the same Maps you use. (Google's
+No API key or billing account is needed; it's the same Maps you use. (Google's
 Distance Matrix API would do this server-side, but it needs a paid key.) Keep it
 to the handful of lookups per listing the playbook describes; Google's terms
 forbid bulk extraction.

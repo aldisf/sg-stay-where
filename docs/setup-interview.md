@@ -35,7 +35,7 @@ user already told you. Never invent answers; leave a field out instead.
 - **Size**: a size that feels right (`size.goodSqft`) and too small (`smallSqft`).
 - **Co-living**: hide co-living operators? (`filters.hideColiving`).
 
-## 3. Places that matter
+## 3. Places
 
 Each becomes a criterion and an icon on every card.
 
@@ -77,7 +77,7 @@ the search returns noise (a "hawker centre" search also returns single stalls).
 Icons: any name in `public/icons/` (see AGENTS.md to add more from Lucide). Pick
 one the user would recognise at 16 px.
 
-## 4. What matters most
+## 4. Priorities
 
 Ask the user to sort the criteria into **must-have** and **nice to have**, and to
 rate importance: high / medium / low. Suggested weights: high 15, medium 6,
@@ -125,7 +125,7 @@ node src/cli.js api POST /api/projects/<id>/searches \
 ```
 
 More on custom searches and what to do when a portal changes its URLs:
-[docs/sourcing.md](sourcing.md#when-the-template-is-not-enough).
+[docs/sourcing.md](sourcing.md#searches-the-template-cant-express).
 
 - Prefer one or two tight searches over many loose ones; each page is a real
   page load in the user's browser.
@@ -183,7 +183,7 @@ ask the user to sign in to 99.co in their Chrome and re-run the extractor.
   (`SSW_AGENT=claude|codex`, default `claude`), with skills/schedule-polls. Ask first; it uses their browser while it runs.
 - **Phone access** (optional): Tailscale, docs/remote-access.md.
 
-## Wrap up
+## Summary
 
 Validate (`npm run project -- check <id>`), open the app (the server has been
 running since setup step 3), and walk the user through Review (swipe right to see and send the intro to the agent,

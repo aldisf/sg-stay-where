@@ -94,7 +94,7 @@ with `searches` instead of `filters`:
 Re-applying a plan replaces that set and keeps each search's on/off switch. The
 readers handle rent and sale pages on all three sites (checked 31 Oct 2026).
 
-## When the template is not enough
+## Searches the template can't express
 
 The template covers price, bedrooms, whole unit or room, and districts. For
 anything else the portal can filter (property type such as HDB only, one MRT
@@ -112,7 +112,7 @@ the search on the site itself:
 The Searches tab shows these as ordinary cards the user can switch on and off.
 Re-applying the template never touches them.
 
-## When a portal changes its URLs
+## Portal URL changes
 
 [skills/build-search](../skills/build-search/SKILL.md) ("Repairing a broken
 search") is the agent's step-by-step for this; [skills/repair-reader](../skills/repair-reader/SKILL.md)

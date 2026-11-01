@@ -1,7 +1,7 @@
 # Polling playbook (browser automation)
 
 A poll finds new listings, fills in their details, and measures what the
-project's criteria ask for on Google Maps — all in the user's own browser. An
+project's criteria ask for on Google Maps, all in the user's own browser. An
 agent runs it on request ("poll now") or on a schedule (`scripts/poll.sh`, which
 runs Claude Code or Codex with `scripts/poll-prompt.md`; see
 [Scheduling](#scheduling)).
