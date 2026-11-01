@@ -8,7 +8,7 @@ two pieces are required. Everything else adds something and can be switched off.
 flowchart LR
   subgraph you[Your computer]
     agent[Coding agent<br/>Claude Code or Codex]
-    chrome[Your Chrome<br/>signed in, your IP]
+    chrome[Your Chrome<br/>your connection]
     app[sg-stay-where<br/>Node + SQLite on 127.0.0.1]
     wa[WhatsApp linked device<br/>optional]
   end
@@ -48,7 +48,7 @@ flowchart LR
 
 ### Why page scripts instead of screenshots
 
-Claude in Chrome and the Codex Chrome extension drive your real, signed-in Chrome and can run JavaScript in the
+Claude in Chrome and the Codex Chrome extension drive a real Chrome on your computer and can run JavaScript in the
 page. The extractors (`browser/propertyguru.js`, `browser/99co.js`,
 `browser/googlemaps.js`) read the structured data a page already carries:
 PropertyGuru's `__NEXT_DATA__`, 99.co's JSON-LD and agent block, and Google Maps'

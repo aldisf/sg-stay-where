@@ -341,7 +341,7 @@ If you schedule Codex, consider leaving WhatsApp unlinked.
 
 ### Give the agent your own Chrome
 
-Each agent needs a browser tool attached to your real, signed-in Chrome. You set
+Each agent needs a browser tool attached to a real Chrome on your computer. You set
 this up once in the agent's own settings; the repo never changes them.
 
 - **Claude Code**: install Claude in Chrome; `--chrome` turns it on.

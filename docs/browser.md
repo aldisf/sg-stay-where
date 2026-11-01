@@ -1,7 +1,7 @@
 # Why it needs browser automation
 
-The listing sites and Google Maps only work properly in a real, signed-in
-browser, so sg-stay-where uses yours instead of scraping from a server.
+The listing sites and Google Maps only work properly in a real browser on your
+own connection, so sg-stay-where uses your Chrome instead of scraping from a server.
 
 ## Listing sites block servers
 

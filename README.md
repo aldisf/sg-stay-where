@@ -162,7 +162,7 @@ for changes every 15 seconds.
 | --- | --- | --- |
 | Node.js 22.23.4+ (or 24.22.1+, 26.12.1+) | **Required** | The app (built-in SQLite; no database server). Earlier releases still trust the CAs behind the Oct 2026 eMudhra key compromise; `npm test` checks. |
 | A coding agent with browser automation | **Required** for setup and polls | Listing sites block servers, and Google Maps results are only free in a browser ([docs/browser.md](docs/browser.md)). Claude Code with Claude in Chrome, or Codex with the Codex Chrome extension. |
-| Google Chrome | **Required** | Pages are loaded in your signed-in browser. |
+| Google Chrome | **Required** | Pages are loaded in a real Chrome on your computer and connection. |
 | A computer that's on | **Required** for polls and chat tracking | Polls, Chrome and the WhatsApp link run on your machine. Asleep or off, nothing is polled; on wake, a missed poll runs once and WhatsApp catches up. |
 | WhatsApp on your phone | Optional, **recommended** | Chat tracking, viewing times, taken units, one-click send ([docs/whatsapp.md](docs/whatsapp.md)). Unofficial client; see Baileys' notes. |
 | macOS | Optional | `scripts/install-macos.sh` runs the app and the 2-hourly poll as background services. On Linux use cron/systemd; on Windows run it by hand. |
