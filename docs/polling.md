@@ -337,8 +337,9 @@ Listings beyond what this run checks wait for the next polls, oldest first.
 
 Setting up, checking or removing the job: [skills/schedule-polls](../skills/schedule-polls/SKILL.md).
 Without a job, the app's Poll now button (header) runs the same poll in the
-background; the header shows the last poll, and "Polls stalled" when a job
-exists but nothing ran for 4 hours.
+background; the header shows the last poll, "Polls stalled" when a job
+exists but nothing ran for 4 hours, and "Searches blocked" when the last poll
+skipped every active search (its tooltip gives each reason).
 
 When the computer sleeps:
 

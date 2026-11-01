@@ -59,6 +59,8 @@ Ask before creating, changing or removing a job. Run one poll by hand first
    `powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1 poll`
    (`both` also runs the server, at sign-in, restarted if it stops). Check it with
    `Get-ScheduledTaskInfo sg-stay-where-poll` (`LastRunTime`, `LastTaskResult`).
+   The tasks keep the agent and the Node and agent folders found at install time;
+   re-run the installer after changing either.
    Tasks run only while the user is signed in, where Chrome is.
 5. **Check it in the app.** The header shows "Polled 2h ago". An amber "Polls
    stalled" means a job exists but nothing ran for 4 hours: look at the newest
