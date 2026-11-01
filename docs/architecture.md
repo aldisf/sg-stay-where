@@ -39,7 +39,7 @@ flowchart LR
    time at 08:30 on a weekday, the walk to the nearest MRT exit, the closest
    hawker centre. The same answers through the Directions and Places APIs need
    an API key and billing, and they differ from what you'd see yourself.
-3. **Same load as you browsing.** One tab, two result pages per search per poll by default,
+3. **Same load as you browsing.** One tab on the listing sites, two result pages per search per poll by default,
    no proxies, no parallel crawling, no captcha solving. A challenge page clears
    by itself or the search is skipped.
 4. **The data stays with you.** Pages are read in your browser. Results reach
@@ -108,6 +108,6 @@ text. Details and tests: [docs/whatsapp.md](whatsapp.md#how-the-filter-works-in-
 | `~/.config/sg-stay-where/<id>/whatsapp-auth/` | The linked-device session, outside the project on purpose. Treat it like a password. |
 | `data/whatsapp.json` | WhatsApp on/off, `excludeNames`, `maxMessagesBeforeLink`. |
 | `browser/` | Extractors that run inside the listing sites and Google Maps. |
-| `scripts/poll-prompt.md` | What a scheduled poll does, step by step. |
+| `scripts/poll-prompt.md`, `scripts/maps-prompt.md` | What a scheduled poll's two agents do: the listing sites, and Google Maps checks from the queue. |
 
 `data/` is gitignored and never leaves your machine.

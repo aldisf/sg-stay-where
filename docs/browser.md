@@ -30,7 +30,7 @@ by hand: on a listing, click it and the listing is imported with the agent's
 number.
 
 This keeps the load identical to you browsing: a couple of result pages per
-search per poll, every 2 hours at most, one tab, no parallel crawling, no
+search per poll, every 2 hours at most, one tab on the listing sites, no parallel crawling, no
 proxies, no captcha solving. At a CAPTCHA or "are you human" page the poll skips
 the search and never works around it.
 It is still automated access to someone else's website; their terms apply (see

@@ -159,7 +159,9 @@ Step-by-step guides in `skills/`, for any agent:
   split a wrong merge ("Not the same flat": `POST /api/listings/:copy/split`); a split
   pair is remembered and never merged automatically again.
 - **The deck only shows complete listings** (page details and Google Maps done), so
-  polls work oldest-waiting first and finish what they start.
+  polls work oldest-waiting first and finish what they start. A scheduled poll runs
+  two agents side by side: one on the listing sites, one on Google Maps checks from
+  `GET /api/queue/maps` (docs/polling.md).
 - **Listing data comes from the user's browser** (`browser/*.js` extractors handed
   over through `/import#<json>`); listing sites block server fetches. Be gentle:
   2 result pages per search per poll by default (the user can set 1–5, and
@@ -237,7 +239,9 @@ Step-by-step guides in `skills/`, for any agent:
 - Background services (Windows): `scripts/install-windows.ps1 both` installs scheduled tasks
   `sg-stay-where-server` (at sign-in, restarted if it stops; logs `data/serve.log`; restart
   with `Stop-ScheduledTask` then `Start-ScheduledTask`) and `sg-stay-where-poll`.
-- `npm run poll`: one unattended poll now with `SSW_AGENT` (default `claude`).
+- `npm run poll`: one unattended poll now with `SSW_AGENT` (default `claude`): a
+  listing-site agent and a Google Maps agent side by side. `npm run poll -- maps`
+  runs only the Maps agent (a backlog; no 20-minute gap).
   Only Claude's tool allowlist confines a poll to `node src/cli.js api|attach`; the
   other agents have a full shell (docs/polling.md "Scheduling").
 - `npm start`: server on http://127.0.0.1:7431 (`SSW_PORT`, `SSW_DATA_DIR` override).
@@ -276,7 +280,7 @@ Step-by-step guides in `skills/`, for any agent:
   `map.js` pins, Detailed map, theme; `deck.js` Review deck, decide, `#contact` dialog;
   `list.js` Watching rows; `detail.js` sheet, Latest block, notes, lightbox, history;
   `enquiries.js`; `settings.js` header, project menu, Searches and Project tabs.
-- `scripts/` poll runner and prompt, macOS service installer. `docs/` how-tos.
+- `src/poll.js` poll runner. `scripts/` the poll's two prompts, service installers. `docs/` how-tos.
 
 ## Hosted apps (Folio)
 

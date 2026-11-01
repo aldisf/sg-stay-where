@@ -2,9 +2,21 @@
 
 A poll finds new listings, fills in their details, and measures what the
 project's criteria ask for on Google Maps, all in the user's own browser. An
-agent runs it on request ("poll now") or on a schedule (`npm run poll`, which
-runs Claude Code or Codex with `scripts/poll-prompt.md`; see
-[Scheduling](#scheduling)).
+agent runs it on request ("poll now"), or `npm run poll` runs it on a schedule
+with two agents side by side (see [Scheduling](#scheduling)).
+
+How the two queues work:
+
+1. **Listing sites** (steps 0–2): new listings from the searches, then page
+   details, at most `poll.listings` per project per run.
+2. **Google Maps** (step 3): every listing whose details are done and whose
+   position is known. `GET /api/queue/maps` hands them out oldest first, also at
+   most `poll.listings` per project per run.
+3. A scheduled poll runs one agent per queue, each in its own tab, so Maps checks
+   start as soon as the first page details are saved. Google Maps never touches
+   the listing sites, so this adds no load on them.
+4. In a chat, one agent does both: after every two listing pages, check the
+   listings that just got their details.
 
 The tracker is at http://127.0.0.1:7431. Reach its API with
 `node src/cli.js api <METHOD> <path> [json]` (local only; it refuses the send
@@ -31,10 +43,10 @@ merged listings. Skip `closed` and `unavailable` for sourcing/details/maps; thei
 new chat messages may still be summarised without reopening them.
 
 Work oldest-waiting first (`created_at` ascending, co-living last), at most
-`project.poll.listings` listings per run for steps 2–3 (default 40, up to 150 in
-the Searches tab), so leftovers from a run that hit its limit are done before
-newer finds. A listing page is one load on a listing site; its Google Maps checks
-don't touch the listing sites. When more listings wait than the limit (after a
+`project.poll.listings` listings per run for step 2 and again for step 3
+(default 40, up to 150 in the Searches tab), so leftovers from a run that hit its
+limit are done before newer finds. A listing page is one load on a listing site;
+its Google Maps checks don't touch the listing sites. When more listings wait than the limit (after a
 first poll or a backfill) and the user is in the session, tell them how many and
 offer to keep going in this run, up to 150. The Review deck only shows a listing once both its
 details and its Google Maps checks are done.
@@ -213,6 +225,15 @@ within the same pause rules:
 
 ## 3. Google Maps for listings with `needsMaps`
 
+The queue: `GET /api/queue/maps` returns up to 2 listings (`limit`, at most 10)
+with page details and a position, their projects' `criteria`, `now`, `left` (what
+this run may still take) and `waiting` (all queued). Pass the first call's `now`
+as `since` on later calls to keep each project to `poll.listings` checks a run.
+`wait=<seconds>` (up to 60) holds an empty answer while `sitesPollRunning` is true,
+for an agent working beside the listing-site agent. 100 minutes after `since` the
+queue answers `timeUp: true` and no listings, so a run ends before the next
+scheduled poll; what's left waits for that one.
+
 Load `gmHelpers` from `browser/googlemaps.js` on the google.com origin the
 same way as the extractors, cached as `gmx`; on each Maps page
 `const gm = eval('(' + sessionStorage.getItem('gmx') + ')')();` gives
@@ -270,8 +291,9 @@ walk), status changes, upcoming viewings.
 
 ## Scheduling
 
-Every 2 hours at most. A poll should look like a person browsing: one tab, the
-search's result pages (2 by default), no parallel tabs. At any CAPTCHA or "are
+Every 2 hours at most. A poll should look like a person browsing: one tab on the
+listing sites, the search's result pages (2 by default), no parallel tabs there
+(the Maps agent's tab is on google.com). At any CAPTCHA or "are
 you human" page it skips the search and never tries to get past it.
 
 What one poll reads is the user's setting, in the Searches tab or through the API:
@@ -321,9 +343,24 @@ When the computer sleeps:
 4. Chrome must be open for a poll to read the sites; otherwise the poll reports
    it and the next one tries again.
 
-`npm run poll` picks the agent from `SSW_AGENT` (default `claude`) and gives it
-`scripts/poll-prompt.md` on stdin. The agent's report goes to `data/poll-logs/<time>.log` and its progress and errors to
-`<time>.err.log`.
+`npm run poll` picks the agent from `SSW_AGENT` (default `claude`) and starts it
+twice: with `scripts/poll-prompt.md` for the listing sites and with
+`scripts/maps-prompt.md` for Google Maps, each prompt on stdin.
+
+1. Claude Code runs both at once, each in its own Chrome tab. Codex runs the
+   Maps agent after the sites agent ends (two Codex Chrome sessions at once are
+   untested).
+2. Each has its own lock (`data/poll.lock`, `data/maps.lock`), so a job still
+   running is skipped, not doubled.
+3. Reports go to `data/poll-logs/<time>.log` and `<time>-maps.log`; progress and
+   errors to `<time>.err.log` and `<time>-maps.err.log`.
+4. `npm run poll -- maps` runs only the Maps agent, for example to work through
+   a backlog; it doesn't wait for the 20-minute gap, which only protects the
+   listing sites. `npm run poll -- sites` runs only the other one.
+5. One listing's Maps checks took about 4 minutes in a test with Claude Code, so
+   a run checks about 25 before its 100 minutes are up. A backlog (after the
+   first poll) drains over the next polls, or sooner with `npm run poll -- maps`
+   in between.
 
 | `SSW_AGENT` | Command | Tool restriction |
 | --- | --- | --- |
@@ -358,7 +395,7 @@ this up once in the agent's own settings; the repo never changes them.
 Don't use a headless or cloud browser: the sites see another IP or a bot, and
 some solve CAPTCHAs, which this tool must never do.
 
-Don't take over the user's tabs: open one tab of your own and work only in it.
+Don't take over the user's tabs: each agent opens one tab of its own and works only in it.
 With Claude in Chrome that's the default (it works in its own tab group). With
 Chrome DevTools MCP, open it with `new_page` and `background: true` (it opens
 without coming to the front), `select_page` it, never `navigate_page` a tab you

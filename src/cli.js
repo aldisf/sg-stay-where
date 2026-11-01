@@ -203,7 +203,9 @@ async function poll() {
   const { poll: run } = await import("./poll.js");
   // Ctrl-C or a stopped job still removes the lock.
   for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => process.exit(130));
-  process.exitCode = await run({ root: ROOT });
+  const [only = null] = args;
+  if (only && !["sites", "maps"].includes(only)) throw new Error("usage: ssw poll [sites|maps]");
+  process.exitCode = await run({ root: ROOT, only });
 }
 
 const command = process.argv[2] ?? "serve";

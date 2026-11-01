@@ -115,6 +115,7 @@ export function filtered({ review = false } = {}) {
   const shown = review ? rows.filter((l) => !l.needsDetails && !l.needsMaps) : rows;
   shown.filteredOut = byStatus.length - rows.length;
   shown.pending = rows.length - shown.length;
+  shown.pendingMaps = review ? rows.filter((l) => !l.needsDetails && l.needsMaps).length : 0;
   return shown;
 }
 

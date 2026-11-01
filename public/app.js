@@ -18,7 +18,7 @@ function renderListings() {
   if (tab === "review") renderDeck(review);
   const shown = tab === "review" ? review : rows;
   const total = tab === "review" ? readyToReview().length : shown.length + shown.filteredOut;
-  $("#filter-note").textContent = `${shown.length < total ? `${shown.length} of ${total}` : shown.length} ${tab === "review" ? "to review" : "shown"}${shown.pending ? ` · ${shown.pending} being checked` : ""}`;
+  $("#filter-note").textContent = `${shown.length < total ? `${shown.length} of ${total}` : shown.length} ${tab === "review" ? "to review" : "shown"}${shown.pending ? ` · ${shown.pending} being checked (${shown.pending - shown.pendingMaps} listing pages, ${shown.pendingMaps} Google Maps)` : ""}`;
   const changed = Object.entries(DEFAULT_FILTERS).filter(([id, on]) => $(`#filter-${id}`).checked !== on && (id !== "station" || criterionOfType("station")));
   const active = [...changed, $("#listing-query").value, tab === "listings" && $("#filter-status").value].filter(Boolean).length;
   $("#active-filters").textContent = active ? `· ${active} on` : "";

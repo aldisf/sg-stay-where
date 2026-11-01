@@ -26,7 +26,7 @@ import { checkProject, CRITERION_TYPES, criteriaOf, DEALS, mapCriteriaKey, messa
 import { isColiving, scoreListing } from "./score.js";
 import { applyTemplate, DISTRICTS, filtersFromPropertyGuru, newestFirst, POLL_LIMITS } from "./searches.js";
 import { canHashOnServer, photoQueue, photoUrls } from "./photos.js";
-import { POLL_GAP_MIN } from "./poll.js";
+import { JOBS, POLL_GAP_MIN } from "./poll.js";
 
 import { projectVersion, requestSearchBrief, resolveSearchBrief } from "./search-brief.js";
 
@@ -55,6 +55,9 @@ async function body(req) {
 // The scheduled poll's job files (scripts/install-macos.sh, skills/schedule-polls).
 const RECHECK_AFTER_DAYS = 3;
 const SHARE_MAPS_DAYS = 90;
+// The Maps agent stops taking work after this, so a run ends before the next
+// scheduled poll (launchd, systemd and Task Scheduler skip a start while one runs).
+const MAPS_RUN_MINUTES = 100;
 const POLL_JOBS = [
   path.join(homedir(), "Library/LaunchAgents/sg-stay-where.poll.plist"),
   path.join(homedir(), ".config/systemd/user/sg-stay-where-poll.timer"),
@@ -63,11 +66,11 @@ const POLL_JOBS = [
 
 export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = [process.execPath, "--no-warnings=ExperimentalWarning", path.join(root, "src/cli.js"), "poll"] }) {
   let pollChild = null;
-  // The poll writes its pid to poll.lock, so a scheduled poll counts too.
-  function pollRunning() {
-    if (pollChild) return true;
-    try { process.kill(Number(readFileSync(path.join(dataDir, "poll.lock"), "utf8")), 0); return true; } catch { return false; }
+  // Each poll job writes its pid to its lock (src/poll.js), so a scheduled poll counts too.
+  function jobRunning(job) {
+    try { process.kill(Number(readFileSync(path.join(dataDir, JOBS[job].lock), "utf8")), 0); return true; } catch { return false; }
   }
+  const pollRunning = () => !!pollChild || Object.keys(JOBS).some(jobRunning);
   // data/server.json: { "remoteHosts": ["<node>.ts.net:8431"], "allowedLogins": ["you@example.com"] }
   const access = readJson(path.join(dataDir, "server.json"), {});
   const remoteHosts = new Set(access.remoteHosts ?? []);
@@ -314,7 +317,40 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     return results;
   }
 
+  // The maps agent's work (src/poll.js): listings with page details and a position but
+  // no Google Maps checks, oldest-waiting first, co-living last. Since `since` (the
+  // run's start), each project gets at most poll.listings checks: `left` is what this
+  // run may still take, `waiting` everything queued; after MAPS_RUN_MINUTES, nothing.
+  function mapsQueue(since, limit) {
+    const timeUp = !!since && Date.now() - Date.parse(since) > MAPS_RUN_MINUTES * 60_000;
+    const ready = [];
+    let waiting = 0;
+    for (const p of projects.list().filter((x) => !x.archived)) {
+      const all = store.listListings(p.id);
+      const checked = since ? all.filter((l) => l.enriched_at >= since && !l.enrichment?.shared_from).length : 0;
+      const left = timeUp ? 0 : Math.max(0, (p.poll?.listings ?? 40) - checked);
+      const queued = all.filter((l) => !l.enriched_at && l.details_at && l.lat != null && l.lng != null && !l.merged_into && !["rejected", "closed", "unavailable"].includes(l.status));
+      waiting += queued.length;
+      ready.push(...queued.sort((a, b) => isColiving(a) - isColiving(b) || a.created_at.localeCompare(b.created_at)).slice(0, left));
+    }
+    ready.sort((a, b) => isColiving(a) - isColiving(b) || a.created_at.localeCompare(b.created_at));
+    const listings = ready.slice(0, limit).map((l) => ({ id: l.id, project: l.project_id, title: l.title, address: l.address, postal: l.postal, lat: l.lat, lng: l.lng, source_mrts: l.source_mrts ?? [] }));
+    return { now: new Date().toISOString(), listings, left: ready.length, waiting, timeUp, criteria: Object.fromEntries([...new Set(listings.map((l) => l.project))].map((id) => [id, criteriaOf(projects.get(id))])), sitesPollRunning: jobRunning("sites") };
+  }
+
   const routes = [
+
+    // `wait` (seconds, up to 60) holds an empty answer while the listing-site agent can still add work.
+    ["GET", /^\/api\/queue\/maps$/, async (req, match, url) => {
+      const since = url.searchParams.get("since");
+      const limit = Math.min(10, Math.max(1, Number(url.searchParams.get("limit")) || 2));
+      const until = Date.now() + Math.min(60, Math.max(0, Number(url.searchParams.get("wait")) || 0)) * 1000;
+      for (;;) {
+        const answer = mapsQueue(since, limit);
+        if (answer.listings.length || answer.timeUp || !answer.sitesPollRunning || Date.now() >= until) return answer;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }],
 
     ["POST", /^\/api\/projects$/, async (req) => {
       const { title, copyFrom, deal } = await body(req);
@@ -545,7 +581,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       return { ok: true };
     }],
     ["POST", /^\/api\/poll$/, () => {
-      if (pollRunning()) throw new HttpError(409, "A poll is already running.");
+      if (pollChild || jobRunning("sites")) throw new HttpError(409, "A poll is already running.");
       const lastFile = path.join(dataDir, "poll.last");
       const mins = existsSync(lastFile) ? Math.floor((Date.now() / 1000 - Number(readFileSync(lastFile, "utf8"))) / 60) : Infinity;
       if (mins < POLL_GAP_MIN) throw new HttpError(409, `The last poll started ${mins} min ago. Polls start at least ${POLL_GAP_MIN} minutes apart, so the sites don't see a burst.`);

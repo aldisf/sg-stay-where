@@ -24,8 +24,8 @@ The problems it solves:
 > 99.co, Carousell, Google or WhatsApp/Meta. Read
 > [Risks and responsible use](#risks-and-responsible-use) first.
 >
-> - **Polls are limited.** One tab, 2 result pages per search by default, at most
->   every 2 hours, no parallel tabs. A poll stops at any CAPTCHA or "are you
+> - **Polls are limited.** One tab on the listing sites, 2 result pages per search by
+>   default, at most every 2 hours. A poll stops at any CAPTCHA or "are you
 >   human" page and never works around it. The sites' terms limit automated
 >   access. Personal use only.
 > - **WhatsApp is optional and uses [Baileys](https://github.com/WhiskeySockets/Baileys),
@@ -140,9 +140,9 @@ flowchart LR
 
 1. **Setup.** The agent interviews you and writes a project file.
 2. **Poll** (every 2 hours at most, or "poll now"). Your agent opens each active search in
-   your Chrome, hands new listings to the app, opens each new listing for details
-   and checks the project's places on Google Maps. A listing appears in Review once
-   it's complete.
+   your Chrome, hands new listings to the app and opens each new listing for details.
+   A second agent checks the project's places on Google Maps at the same time, in
+   its own tab, as details finish. A listing appears in Review once it's complete.
 3. **Review.** You swipe. The app scores, dedupes and maps; WhatsApp chats update the
    status of what you're pursuing; the agent summarises viewings.
 
@@ -153,7 +153,7 @@ Both run without a chat session. Both need the computer on.
 | Job | Schedule | What it does |
 | --- | --- | --- |
 | **App server** (background service) | Always running | Serves the app. With WhatsApp linked, stores property-chat messages as they arrive and marks replies, viewing times and "may be taken". |
-| **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages). 3. Gets details and Google Maps checks for up to 40 listings. 4. Reopens up to 5 older listings to find removed ones. |
+| **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages). 3. Gets details for up to 40 listings. 4. Reopens up to 5 older listings to find removed ones. 5. Meanwhile, a second agent checks up to 40 listings on Google Maps as their details finish. |
 
 Your agent sets up the schedule with [skills/schedule-polls](skills/schedule-polls/SKILL.md):
 a LaunchAgent on macOS, a systemd timer on Linux, a scheduled task on Windows.
@@ -296,14 +296,14 @@ use bot protection (Cloudflare). Many page loads from one browser trigger a
 
 1. **Interval.** Every 2 hours by default, and at least 20 minutes after the last
    poll started, including Poll now.
-2. **Size.** 2 result pages per search by default (up to 5), one tab, a few
-   seconds between pages.
+2. **Size.** 2 result pages per search by default (up to 5), one tab on the
+   listing sites, a few seconds between pages.
 3. **Bot checks.** A poll waits up to 30 s for a Cloudflare page to clear by
    itself, otherwise skips that site until the next poll. It never clicks through
    a check or works around a block.
 4. **Listing pages.** Each poll opens up to 40 listings for their details (150
-   if you set it) and rechecks up to 5 older ones. Google Maps checks don't load
-   the listing sites.
+   if you set it) and rechecks up to 5 older ones. Google Maps checks run in a
+   second tab on google.com and don't load the listing sites.
 
 Use it for your own home search only. Don't run it as a service, republish
 listings or increase the limits.
