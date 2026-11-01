@@ -436,6 +436,9 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
 
     ["POST", /^\/api\/import$/, async (req) => {
       const input = await body(req);
+      if (!input || typeof input !== "object" || Array.isArray(input)) throw new HttpError(400, "Send an object with a listings array.");
+      if ("enrichment" in input) throw new HttpError(400, "Save Maps checks with PUT /api/listings/<id>/enrichment, using the enrichment object as the body. /api/import only accepts listings.");
+      if (!Array.isArray(input.listings)) throw new HttpError(400, "Send a listings array (empty is allowed for a search with no matches).");
       const results = importListings(input.listings, input.found_by ?? "import", input.project);
       if (input.poll) store.recordPoll({ search: input.poll, seen: results.length, added: results.filter((r) => r.created).length, note: input.note ?? null });
       return { imported: results.length, created: results.filter((r) => r.created).length, results };
