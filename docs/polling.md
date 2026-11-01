@@ -258,6 +258,12 @@ fastest suggested trip, not the first.
 - Screenshot each search and route (`save_to_disk`, scale 0.4) and attach as
   `maps:<criterion key>`.
 
+With a read-only browser tool, save each listing's enrichment object to a file
+and use `node src/cli.js api PUT /api/listings/<id>/enrichment @<file>`.
+Do not POST an `enrichment` wrapper to `/api/import`: that endpoint accepts
+listing arrays, while the browser's `/import#` page dispatches Maps results to
+the enrichment endpoint.
+
 ## 4. Catch new replies
 
 Re-read project state and repeat step 0a for messages received during browser
