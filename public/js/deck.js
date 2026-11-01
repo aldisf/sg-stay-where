@@ -208,7 +208,7 @@ export function renderDeck(rows) {
   if (entering) { deck.topId = top?.id ?? null; deck.photo = 0; }
   // Ready listings the search box or a filter keeps out of the deck.
   const hidden = readyToReview().length - rows.length;
-  const pendingNote = rows.pending ? ` ${rows.pending} more will appear once the poll has checked ${rows.pending === 1 ? "it" : "them"}.` : "";
+  const pendingNote = rows.pending ? ` ${rows.pending} ${rows.pending === 1 ? "listing is" : "listings are"} waiting for details and Maps checks.` : "";
   const missing = state.profileMissing ?? [];
   const profileNote = missing.length ? `<p class="profile-note">${icon("user")}<span>Your intro is missing ${esc(missing.join(", "))}. <a href="#/project">Complete your profile</a> or ask your agent.</span></p>` : "";
   const html = profileNote + (top ? `
@@ -223,8 +223,8 @@ export function renderDeck(rows) {
     </div>
     <p class="deck-hint">Swipe or press ← → to decide. Interested shows you the message before anything is sent.</p>`
     : hidden
-      ? `<div class="empty-state">${icon("sparkles")}<p>No listings match these filters.</p><p class="muted">${hidden} ${hidden === 1 ? "listing is" : "listings are"} waiting. Turn off a filter or clear the search to see ${hidden === 1 ? "it" : "them"}.${pendingNote}</p></div>`
-      : `<div class="empty-state">${icon("sparkles")}<p>${rows.pending ? "Listings are being checked." : "You're all caught up."}</p><p class="muted">New listings from your searches land here first.${pendingNote}</p></div>`);
+      ? `<div class="empty-state">${icon("sparkles")}<p>No listings match these filters.</p><p class="muted">${hidden} completed ${hidden === 1 ? "listing is" : "listings are"} hidden by your filters.${pendingNote}</p><button type="button" data-show-all-review>Show all completed listings</button></div>`
+      : `<div class="empty-state">${icon("sparkles")}<p>${rows.pending ? (state.poll?.running ? "Listings are being checked." : "Listings are waiting for checks.") : "You're all caught up."}</p><p class="muted">New listings from your searches land here first.${pendingNote}</p></div>`);
   if (html !== deck.html) {
     $("#deck").innerHTML = html;
     deck.html = html;

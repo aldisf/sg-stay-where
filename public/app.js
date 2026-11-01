@@ -18,7 +18,7 @@ function renderListings() {
   if (tab === "review") renderDeck(review);
   const shown = tab === "review" ? review : rows;
   const total = tab === "review" ? readyToReview().length : shown.length + shown.filteredOut;
-  $("#filter-note").textContent = `${shown.length < total ? `${shown.length} of ${total}` : shown.length} ${tab === "review" ? "to review" : "shown"}${shown.pending ? ` · ${shown.pending} being checked` : ""}`;
+  $("#filter-note").textContent = `${shown.length < total ? `${shown.length} of ${total}` : shown.length} ${tab === "review" ? "to review" : "shown"}${shown.pending ? ` · ${shown.pending} ${state.poll?.running ? "being checked" : "waiting for checks"}` : ""}`;
   const changed = Object.entries(DEFAULT_FILTERS).filter(([id, on]) => $(`#filter-${id}`).checked !== on && (id !== "station" || criterionOfType("station")));
   const active = [...changed, $("#listing-query").value, tab === "listings" && $("#filter-status").value].filter(Boolean).length;
   $("#active-filters").textContent = active ? `· ${active} on` : "";
@@ -121,6 +121,16 @@ function wire() {
   wireList();
 
   document.addEventListener("click", (ev) => {
+    if (ev.target.closest("[data-show-all-review]")) {
+      for (const id of Object.keys(DEFAULT_FILTERS)) $(`#filter-${id}`).checked = false;
+      $("#listing-query").value = "";
+      savePrefs();
+      setFittedFor(null);
+      renderListings();
+      renderHeader();
+      $("#deck .swipe-card.top")?.focus();
+      return;
+    }
     if (!ev.target.closest(".project-menu")) toggleMenu(false);
     // The click that ends a drag is not a tap.
     if (Date.now() - lastSwipeAt < 400 && ev.target.closest(".swipe-card, #side-list .item")) { ev.preventDefault(); return; }
