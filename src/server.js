@@ -8,6 +8,9 @@
 // Tailscale must carry the Tailscale-User-Login that `tailscale serve` adds,
 // and it must be one of data/server.json "allowedLogins".
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { promisify } from "node:util";
+import { gzip } from "node:zlib";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import http from "node:http";
 import { homedir } from "node:os";
@@ -280,7 +283,6 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
   }
 
   const routes = [
-    ["GET", /^\/api\/state$/, (req, _, url) => state(url.searchParams.get("project"))],
 
     ["POST", /^\/api\/projects$/, async (req) => {
       const { title, copyFrom, deal } = await body(req);
@@ -555,6 +557,30 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
 
   const serveFile = assetServer();
 
+  // The page asks for the state every 15 s. Its tag covers everything the state
+  // is built from (the time only matters to lead signals, so to 5 minutes), so an
+  // unchanged state costs a 304, and a changed one is built and gzipped once.
+  // no-store: the state holds chat text, so the page keeps the tag itself rather
+  // than leaving it in the browser's disk cache.
+  let stateCache = { tag: null, json: null, gz: null };
+  async function sendState(req, res, projectId) {
+    const p = project(projectId);
+    const tag = `"${createHash("sha1").update(JSON.stringify([
+      store.changeKey(), projectVersion(p), projects.list(),
+      settings(), wa?.status() ?? null, pollRunning(), POLL_JOBS.map((f) => existsSync(f)), Math.floor(Date.now() / 300_000)
+    ])).digest("hex").slice(0, 20)}"`;
+    const headers = { "content-type": "application/json", "cache-control": "no-store", etag: tag, vary: "accept-encoding" };
+    if (req.headers["if-none-match"] === tag) { res.writeHead(304, headers); res.end(); return; }
+    if (stateCache.tag !== tag) {
+      const json = Buffer.from(JSON.stringify(state(projectId)));
+      stateCache = { tag, json, gz: await promisify(gzip)(json) };
+    }
+    const zipped = /\bgzip\b/.test(req.headers["accept-encoding"] ?? "");
+    const body = zipped ? stateCache.gz : stateCache.json;
+    res.writeHead(200, { ...headers, ...(zipped ? { "content-encoding": "gzip" } : {}), "content-length": body.length });
+    res.end(body);
+  }
+
   const server = http.createServer(async (req, res) => {
     try {
       if (!admitted(req)) {
@@ -566,6 +592,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
         const origin = req.headers.origin;
         if (origin && !knownHost(origin.replace(/^https?:\/\//, ""))) throw new HttpError(403, "cross-origin write refused");
       }
+      if (req.method === "GET" && url.pathname === "/api/state") return await sendState(req, res, url.searchParams.get("project"));
       if (url.pathname.startsWith("/api/")) {
         for (const [method, pattern, handler] of routes) {
           const match = url.pathname.match(pattern);

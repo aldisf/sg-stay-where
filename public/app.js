@@ -204,7 +204,7 @@ function wire() {
   // Don't redraw under someone typing.
   document.addEventListener("focusin", (ev) => { editing = ev.target.matches("textarea, input:not([type=checkbox])"); });
   document.addEventListener("focusout", () => { editing = false; });
-  const poll = () => { if (state && !document.hidden && !editing && !drag && !$("#new-project").open) refresh().catch(() => {}); };
+  const poll = () => { if (state && !document.hidden && !editing && !drag && !$("#new-project").open) refresh({ onlyIfChanged: true }).catch(() => {}); };
   setInterval(poll, 15_000);
   document.addEventListener("visibilitychange", poll);
 }

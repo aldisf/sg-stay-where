@@ -65,16 +65,21 @@ let pageRequests = new AbortController();
 window.addEventListener("pagehide", () => pageRequests.abort());
 window.addEventListener("pageshow", () => { if (pageRequests.signal.aborted) pageRequests = new AbortController(); });
 
-export async function api(path, { method = "GET", body } = {}) {
+const TAG = Symbol("etag");
+
+// With `ifNoneMatch`, an unchanged resource answers 304 and this returns null.
+export async function api(path, { method = "GET", body, ifNoneMatch } = {}) {
   pageRequests.signal.throwIfAborted();
   const res = await fetch(path, {
     method,
     signal: pageRequests.signal,
-    headers: body !== undefined ? { "content-type": "application/json" } : {},
+    headers: { ...(body !== undefined ? { "content-type": "application/json" } : {}), ...(ifNoneMatch ? { "if-none-match": ifNoneMatch } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined
   });
+  if (res.status === 304) return null;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw Object.assign(new Error(data.error ?? res.statusText), { status: res.status });
+  if (res.headers.get("etag")) data[TAG] = res.headers.get("etag");
   return data;
 }
 
@@ -156,12 +161,15 @@ async function fingerprintPhotos() {
 let refreshes = 0;
 let shownRefresh = 0;
 
-export async function refresh() {
+// `onlyIfChanged` is for the background timer: with 800+ listings, redrawing an
+// unchanged state every 15 s is what made the page slow.
+export async function refresh({ onlyIfChanged = false } = {}) {
   const n = ++refreshes;
   const sentAt = Date.now();
   let next;
   try {
-    next = await api(`/api/state${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}`);
+    const tag = onlyIfChanged && !pending.size && !pendingNotes.size ? state?.[TAG] : null;
+    next = await api(`/api/state${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}`, { ifNoneMatch: tag });
   } catch (error) {
     if (n >= shownRefresh) {
       $("#connection-message").textContent = state ? "Updates paused. Your last loaded listings are still here." : error.status === 409 ? "No project yet. Ask your coding agent to set up sg-stay-where, then retry." : "Could not connect to the tracker. Check that it is running, then retry.";
@@ -169,6 +177,7 @@ export async function refresh() {
     }
     throw error;
   }
+  if (!next) return void ($("#connection-status").hidden = true);
   if (n < shownRefresh) return; // a later refresh already drew newer data
   if (projectId && next.project.id !== projectId && state?.projects.some((p) => p.id === projectId)) return;
   shownRefresh = n;

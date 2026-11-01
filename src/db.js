@@ -193,7 +193,7 @@ export class Store {
   }
 
   getListing(id) {
-    return decodeListing(this.db.prepare("SELECT * FROM listings WHERE id = ?").get(id));
+    return this.#listings().byId.get(Number(id)) ?? null;
   }
 
   // A merged copy answers with the listing it was merged into, so a chat about
@@ -257,11 +257,26 @@ export class Store {
     return this.db.prepare("SELECT alias FROM listing_aliases WHERE listing_id = ?").all(listingId).map((r) => r.alias);
   }
 
+  // Decoded listings, reused until the database changes: this connection's writes
+  // (total_changes) or another process's (data_version). Loops that compare every
+  // listing with every other one would otherwise decode the table each time.
+  #cache = { key: null, rows: [], byId: new Map() };
+  changeKey() {
+    return `${this.db.prepare("SELECT total_changes() AS n").get().n}:${this.db.prepare("PRAGMA data_version").get().data_version}`;
+  }
+
+  #listings() {
+    const key = this.changeKey();
+    if (this.#cache.key !== key) {
+      const rows = this.db.prepare("SELECT * FROM listings ORDER BY created_at DESC").all().map((r) => Object.freeze(decodeListing(r)));
+      this.#cache = { key, rows, byId: new Map(rows.map((l) => [l.id, l])) };
+    }
+    return this.#cache;
+  }
+
   listListings(projectId = null) {
-    const rows = projectId
-      ? this.db.prepare("SELECT * FROM listings WHERE project_id = ? ORDER BY created_at DESC").all(projectId)
-      : this.db.prepare("SELECT * FROM listings ORDER BY created_at DESC").all();
-    return rows.map(decodeListing);
+    const { rows } = this.#listings();
+    return projectId ? rows.filter((l) => l.project_id === projectId) : [...rows];
   }
 
   // Listings with no project yet (from before projects, or a chat link) join this one.
