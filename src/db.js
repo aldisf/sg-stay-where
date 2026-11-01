@@ -70,7 +70,7 @@ const ADDED_COLUMNS = {
   // also: the same flat's other adverts merged into this one ([{ id, source, url }]);
   // merged_into: on such a copy, the listing it was merged into.
   // photo_hashes: fingerprints of its photos (src/photohash.js), for matching across sites.
-  listings: { summary: "TEXT", photos: "TEXT", media: "TEXT", project_id: "TEXT", also: "TEXT", merged_into: "INTEGER", photo_hashes: "TEXT", status_version: "INTEGER NOT NULL DEFAULT 0", manual_message_floor: "INTEGER NOT NULL DEFAULT 0" },
+  listings: { summary: "TEXT", photos: "TEXT", media: "TEXT", project_id: "TEXT", also: "TEXT", merged_into: "INTEGER", photo_hashes: "TEXT", status_version: "INTEGER NOT NULL DEFAULT 0", manual_message_floor: "INTEGER NOT NULL DEFAULT 0", seen_at: "TEXT", gone_at: "TEXT" },
   // "agent" or "portal" (a listing site's enquiry bot, e.g. PropertyGuru's).
   wa_chats: { kind: "TEXT" }
 };
@@ -310,6 +310,16 @@ export class Store {
     this.db.prepare("DELETE FROM listing_updates WHERE listing_id = ?").run(id);
     this.db.prepare("DELETE FROM chat_listings WHERE listing_id = ?").run(id);
     this.db.prepare("DELETE FROM listings WHERE id = ?").run(id);
+  }
+
+  // A poll saw the listing on its site (a search card or its page).
+  markSeen(ids) {
+    for (const id of ids) this.db.prepare("UPDATE listings SET seen_at = ? WHERE id = ?").run(now(), id);
+  }
+
+  // gone_at: when a poll found the listing page removed; cleared by any later status choice.
+  setGone(id, at) {
+    this.db.prepare("UPDATE listings SET gone_at = ? WHERE id = ?").run(at, id);
   }
 
   setEnrichment(id, enrichment) {

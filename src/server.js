@@ -53,6 +53,8 @@ async function body(req) {
 
 // The scheduled poll's job files (scripts/install-macos.sh, skills/schedule-polls).
 const POLL_GAP_MIN = 20;
+const RECHECK_AFTER_DAYS = 3;
+const SHARE_MAPS_DAYS = 90;
 const POLL_JOBS = [path.join(homedir(), "Library/LaunchAgents/sg-stay-where.poll.plist"), path.join(homedir(), ".config/systemd/user/sg-stay-where-poll.timer")];
 
 export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = ["zsh", path.join(root, "scripts/poll.sh")] }) {
@@ -111,6 +113,27 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     return { places, stations };
   }
 
+  // Listings still to decide on whose page no poll has seen lately: polls reopen a
+  // few each run so ones taken down leave Review and Watching. From "contacted"
+  // on, the agent's chat says whether it is still available.
+  function needsRecheck(listing) {
+    if (!["new", "shortlisted"].includes(listing.status) || listing.merged_into || !listing.details_at || !listing.enriched_at) return false;
+    return Date.now() - Date.parse(listing.seen_at ?? listing.details_at) > RECHECK_AFTER_DAYS * 86_400_000;
+  }
+
+  // Maps results depend only on where the home is, and every result in a project
+  // matches its current criteria (changing them clears all), so a listing in a
+  // building already checked recently reuses that check.
+  function shareMaps(listing) {
+    if (listing.enriched_at || listing.merged_into || !listing.postal) return false;
+    const twin = store.listListings(listing.project_id).find((o) => o.id !== listing.id && o.postal === listing.postal && o.enriched_at && !o.enrichment?.shared_from
+      && Date.now() - Date.parse(o.enriched_at) < SHARE_MAPS_DAYS * 86_400_000
+      && (listing.lat == null || o.lat == null || haversine(listing, o) < 150));
+    if (!twin) return false;
+    store.setEnrichment(listing.id, { ...twin.enrichment, shared_from: twin.id });
+    return true;
+  }
+
   function view(listing, p, conversation = store.followup(listing.id)) {
     const { messages, token } = conversation;
     const score = scoreListing(listing, p);
@@ -132,6 +155,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       coliving: isColiving(listing),
       needsDetails: !listing.details_at,
       needsMaps: !listing.enriched_at,
+      needsRecheck: needsRecheck(listing),
       sites: [...new Set([listing.source, ...(listing.also ?? []).map((a) => a.source)].filter(Boolean))],
       // New chat messages since the agent last summarised.
       summaryStale: messages.length > 0 && listing.summary?.conversation_token !== token
@@ -231,6 +255,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       if (merged.length) log("info", `${p.id}: merged ${merged.length} duplicate adverts (${merged.map(([c, k]) => `#${c}→#${k}`).join(", ")})`);
     }
     for (const l of store.listListings()) if (!l.merged_into && l.status !== "unavailable") photoHashes.add(l);
+    for (const l of store.listListings()) shareMaps(l);
   }
 
   function listingOr404(id) {
@@ -276,6 +301,9 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
         store.updateListing(listing.id, { status: "shortlisted" });
       }
       store.refreshLead(listing.id);
+      const saved = store.getListing(listing.id);
+      if (input.found_by === "poll") store.markSeen([saved.id, saved.merged_into].filter(Boolean));
+      shareMaps(saved);
       photoHashes.add(store.getListing(listing.id));
       results.push({ id: listing.id, created, url: listing.url });
     }
@@ -384,6 +412,8 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
         throw new HttpError(409, `the user decides ${before.status} → ${patch.status}; leave it`);
       }
       const listing = store.updateListing(Number(id), patch, { automatic: poll });
+      // A poll's only status change is "the listing page is gone".
+      if (patch.status && patch.status !== before.status) store.setGone(listing.id, poll && patch.status === "unavailable" ? new Date().toISOString() : null);
       const alsoHidden = patch.status === "rejected" && before.status !== "rejected" ? hideRepeats(listing) : [];
       return { ...listing, alsoHidden };
     }],
@@ -410,6 +440,12 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
         Object.assign(merged.mrt[0], { transit_min: mrtTransit.transit_min, transit_summary: mrtTransit.summary ?? null });
       }
       store.setEnrichment(Number(id), merged);
+      // Results can arrive in several saves; copies follow their source.
+      for (const l of listing.postal ? store.listListings(listing.project_id) : []) {
+        if (l.postal !== listing.postal) continue;
+        if (l.enrichment?.shared_from === listing.id) store.setEnrichment(l.id, { ...merged, shared_from: listing.id });
+        else shareMaps(l);
+      }
       return store.getListing(Number(id));
     }],
 

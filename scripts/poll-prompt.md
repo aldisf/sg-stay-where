@@ -21,6 +21,7 @@ Read docs/polling.md first and follow it exactly. For this unattended run:
 - Result pages: each search's `pages` (default 2). Details and Google Maps checks:
   at most the project's `poll.listings` (default 40) listings this run, oldest-waiting first
   (`created_at` ascending, co-living last), so leftovers from earlier runs go first.
+  Then recheck up to 5 listings with `needsRecheck` (docs/polling.md step 2b).
 - New listings land in the user's Review deck (status new) and stay there until the
   user swipes them. Never set a status to new, shortlisted or rejected, and never
   change a rejected listing: those are the user's choices (the tracker refuses them).

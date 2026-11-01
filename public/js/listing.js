@@ -61,7 +61,7 @@ export function chips(l, { labels = false, mustOnly = false } = {}) {
 }
 
 export const allBoxes = (l) => l.score.boxes.length > 0 && l.score.boxesTicked === l.score.boxes.length;
-export const statusPill = (l) => `<span class="pill s-${esc(l.status)}">${esc(STATUS_LABEL[l.status] ?? l.status)}</span>`;
+export const statusPill = (l) => `<span class="pill s-${esc(l.status)}">${esc(l.status === "unavailable" && l.gone_at ? "Removed from site" : STATUS_LABEL[l.status] ?? l.status)}</span>`;
 // Nothing is known yet about a pasted link: half credit everywhere would read as a real score.
 export const unscored = (l) => l.needsDetails && l.needsMaps;
 export const scoreTag = (l, cls = "") => unscored(l)

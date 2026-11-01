@@ -76,9 +76,12 @@ export async function openDetail(id, { push = true } = {}) {
     </div>
     ${carousel.slides.length > 1 ? `<div class="thumbs">${thumbs}</div>` : ""}
     <div hidden>${slideItems}</div>` : "";
-  const mapShots = Object.entries(l.media?.maps ?? {}).map(([key, file]) => {
+  // Results shared from another listing in the same building show that one's screenshots.
+  const checked = state.listings.find((x) => x.id === e?.shared_from) ?? l;
+  const mapShots = Object.entries(checked.media?.maps ?? {}).map(([key, file]) => {
     const label = criteria().find((c) => c.key === key)?.label ?? key;
-    return `<figure><a href="/media/${l.id}/${esc(file)}" class="lb lb-item" data-src="/media/${l.id}/${esc(file)}" data-caption="Google Maps: ${esc(label)}"><img src="/media/${l.id}/${esc(file)}" alt="Google Maps: ${esc(label)}" loading="lazy"></a><figcaption>${esc(label)}</figcaption></figure>`;
+    const src = `/media/${checked.id}/${esc(file)}`;
+    return `<figure><a href="${src}" class="lb lb-item" data-src="${src}" data-caption="Google Maps: ${esc(label)}"><img src="${src}" alt="Google Maps: ${esc(label)}" loading="lazy"></a><figcaption>${esc(label)}</figcaption></figure>`;
   }).join("");
   const places = e?.facilities ? nearbys().map((c) => `
       <h4>${icon(c.icon)}${esc(c.label)}</h4>
@@ -115,7 +118,7 @@ export async function openDetail(id, { push = true } = {}) {
 
     ${latestBlock(l, messages.length)}
 
-    <h3>Getting around <span class="muted small">${e?.checked_at ? `Google Maps, ${esc(when(e.checked_at))}` : ""}</span></h3>
+    <h3>Getting around <span class="muted small">${e?.checked_at ? `Google Maps, ${esc(when(e.checked_at))}${e.shared_from ? " · same building as another listing" : ""}` : ""}</span></h3>
     <dl class="facts">
       ${criterionOfType("station") ? `<div><dt>${icon(criterionOfType("station").icon)}${esc(criterionOfType("station").label)}</dt><dd>${stationLine(l)}</dd></div>` : ""}
       ${commutes().map((c) => `<div><dt>${icon(c.icon)}${esc(c.label)}</dt><dd>${commuteLine(l, c)}</dd></div>`).join("")}

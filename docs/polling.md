@@ -26,7 +26,7 @@ Be gentle with the sites: at most two configured pages per search, one tab, no r
 `GET /api/state` → `projects[]` (not archived = poll them). For each project:
 `GET /api/state?project=<id>` → `project` (criteria, searches), `criteria` (with
 defaults filled in), `listings[]` with `needsDetails`, `needsMaps`,
-`summaryStale`, `status`, plus `projectVersion`. Never process `rejected` or
+`needsRecheck`, `summaryStale`, `status`, plus `projectVersion`. Never process `rejected` or
 merged listings. Skip `closed` and `unavailable` for sourcing/details/maps; their
 new chat messages may still be summarised without reopening them.
 
@@ -193,8 +193,23 @@ page moves on to the tracker at `/#/listing-<id>`. Attach the screenshot:
   place URL (`!3d…!4d…`) and save them with `PATCH /api/listings/<id>`
   `{ "lat": …, "lng": … }` before step 3. A listing outside the search's
   districts, or a room, leaves Review on import with an "Auto-skipped" note.
-- A PropertyGuru URL that redirects to a search page means the listing is gone:
-  `PATCH /api/listings/<id>` `{ "status": "unavailable", "notes": "…" }`.
+- A listing page that is gone (PropertyGuru redirects to a search page; 99.co or
+  Carousell say the listing was removed, sold or is no longer available) means:
+  `PATCH /api/listings/<id>` `{ "status": "unavailable" }`. Leave `notes` alone (they
+  are the user's); the card then reads "Removed from site". A Cloudflare check or a
+  page that failed to load is not "gone": skip it and try next poll.
+
+## 2b. Recheck listings with `needsRecheck`
+
+Listings in Review or Watching whose page no poll has seen for 3 days. Open up to
+5 per run, oldest `seen_at` first (`details_at` when it has none), after step 2 and
+within the same pause rules:
+
+1. Still listed: run the extractor and import it as in step 2. That refreshes its
+   price and `seen_at`.
+2. Gone (as above): if the card lists other sites (`sites` has more than one), open
+   that copy (`also[].url`) first; only when every copy is gone, PATCH it
+   `unavailable`.
 
 ## 3. Google Maps for listings with `needsMaps`
 
@@ -208,6 +223,9 @@ same way as the extractors, cached as `gmx`; on each Maps page
 | `nearby` | `/maps/search/<search>/@lat,lng,<zoom or 15>z` | `await gm.places({lat, lng}, { match })` (`match` when the criterion sets it) |
 | `station` | `/maps/dir/lat,lng/<station lat,lng>/data=!4m2!4m1!3e2` | walking `gm.duration()` |
 | `commute` | `/maps/dir/lat,lng/<query>/data=!4m6!4m5!2m3!6e0!7e2!8j<epoch>!3e3` | transit `gm.duration()` |
+
+A new listing at a postal code already checked in the last 90 days reuses that
+check (`enrichment.shared_from`), so it never shows `needsMaps`.
 
 `places` scrolls the result list (Maps lists by relevance; the nearest is often
 further down) and returns the straight-line nearest. `duration` returns the
