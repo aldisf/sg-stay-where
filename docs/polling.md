@@ -394,15 +394,15 @@ If you schedule Codex, consider leaving WhatsApp unlinked.
 Each agent needs a browser tool attached to a real Chrome on your computer. You set
 this up once in the agent's own settings; the repo never changes them.
 
-Validate that connection in the actual unattended CLI before installing a poll
-schedule: run `npm run poll`, then read its report and error log in
-`data/poll-logs/`. Confirm it read a search or explicitly encountered a portal
-challenge. Exit code 0 alone is not proof: an agent can report missing browser
-access, record skipped searches, and exit successfully. A working extension in
-a desktop chat does not establish browser access for a separate CLI process.
-If the CLI reports browser access disabled or unavailable, do not schedule that
-CLI. Use a browser-capable agent or run the workflow in the desktop chat instead;
-do not enable broader access or substitute a headless browser to work around it.
+Before scheduling, check the unattended CLI can browse:
+
+1. Run `npm run poll` and read its reports in `data/poll-logs/`.
+2. It should have read a search, or met a site's check. Exit code 0 is not
+   enough: without browser access an agent skips every search and still exits 0,
+   and the header then shows "Searches blocked".
+3. A browser tool that works in a desktop chat may not reach a separate CLI
+   process. If the CLI has none, don't schedule it: run polls in the desktop chat
+   instead. Never switch to a headless browser.
 
 - **Claude Code**: install Claude in Chrome; `--chrome` turns it on.
 - **Codex**: install the ChatGPT desktop app and the Codex Chrome extension.
