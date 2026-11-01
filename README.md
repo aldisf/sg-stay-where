@@ -147,6 +147,19 @@ flowchart LR
 3. **Review.** You swipe. The app scores, dedupes and maps; WhatsApp chats update the
    status of what you're pursuing; the agent summarises viewings.
 
+### What runs, and when
+
+Two things run on their own. Neither needs a chat with your agent open, but both
+need your computer on.
+
+| What | When | What it does |
+| --- | --- | --- |
+| **The app** (background service) | Always | Serves the page. With WhatsApp linked, saves property-chat messages the moment they arrive and flags replies, viewing times and "may be taken". |
+| **The poll** (scheduled agent run) | Every 2 hours on the hour; once on wake if one was missed; or **Poll now** | 1. Summarises new WhatsApp messages, one state per home. 2. New listings from each search (2 pages). 3. Details and Google Maps for up to 40 listings. 4. Reopens up to 5 older listings to catch ones taken down. |
+
+Polls are at least 20 minutes apart, Poll now included. The open page checks for
+changes every 15 seconds.
+
 ## Requirements
 
 | | Needed? | Why |
