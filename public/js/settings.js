@@ -200,12 +200,15 @@ function renderPollButton() {
   const { lastAt, running, scheduled } = state.poll;
   const last = lastAt ? ago(Date.parse(lastAt) / 1000) : null;
   const stalled = !running && scheduled && (!lastAt || Date.now() - Date.parse(lastAt) > STALLED_MS);
-  const text = running ? "Polling…" : stalled ? `Polls stalled${last ? ` · ${last}` : ""}` : last ? `Polled ${last}` : "Poll now";
+  const active = (state.project.searches ?? []).filter(s => s.active !== false);
+  const blocked = active.map(s => ({ title: s.title, note: state.searchLast?.[s.title]?.note })).filter(s => s.note);
+  const allBlocked = active.length > 0 && blocked.length === active.length;
+  const text = running ? "Polling…" : allBlocked ? `Searches blocked${last ? ` · ${last}` : ""}` : stalled ? `Polls stalled${last ? ` · ${last}` : ""}` : last ? `Polled ${last}${blocked.length ? ` · ${blocked.length} skipped` : ""}` : "Poll now";
   const button = $("#poll-now");
   setHTML(button, `${icon("refresh-cw")}<span>${esc(text)}</span>`);
   button.disabled = running;
-  button.classList.toggle("stalled", stalled);
-  button.title = running ? "A poll is running" : `${stalled ? "No poll since the schedule expected one. " : ""}Poll now`;
+  button.classList.toggle("stalled", stalled || allBlocked);
+  button.title = running ? "A poll is running" : `${stalled ? "No poll since the schedule expected one. " : ""}${blocked.map(s => `${s.title}: ${s.note}. `).join("")}Poll now`;
   button.setAttribute("aria-label", button.title);
 }
 
