@@ -34,7 +34,7 @@ jobs:
           powershell -ExecutionPolicy Bypass -File scripts\install-windows.ps1 both
           $up = $false
           for ($i = 0; $i -lt 30 -and -not $up; $i++) {
-            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7431/api/state | Out-Null; $up = $true } catch { Start-Sleep 2 }
+            try { Invoke-WebRequest -UseBasicParsing http://127.0.0.1:7431/ | Out-Null; $up = $true } catch { Start-Sleep 2 }
           }
           Get-Content data\serve.log -ErrorAction SilentlyContinue
           if (-not $up) { throw "the server task did not start" }

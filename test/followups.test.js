@@ -66,14 +66,13 @@ test('a manual status choice never invents a summary and drops only the old appo
 
 test('reopening a database clears placeholder summaries left by earlier versions', t => {
   const dir = mkdtempSync(path.join(tmpdir(), 'ssw-store-'));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const file = path.join(dir, 'db.sqlite');
   let store = new Store(file);
   const { listing } = store.upsertListing({ source: 'propertyguru', source_id: '500000321', url: 'https://www.propertyguru.com.sg/listing/500000321', project_id: 'home' });
   store.db.prepare('UPDATE listings SET summary = ? WHERE id = ?').run(JSON.stringify({ viewing: null, decision: 'maybe', manually_adjusted: true }), listing.id);
   store.close();
   store = new Store(file);
-  t.after(() => store.close());
+  t.after(() => { store.close(); rmSync(dir, { recursive: true, force: true }); });
   assert.equal(store.getListing(listing.id).summary, null);
 });
 

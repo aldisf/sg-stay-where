@@ -3,10 +3,11 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Store } from "./db.js";
 import { ProjectFiles } from "./projects.js";
 
-const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function roomSvg(kind, palette) {
   const { wall, floor, accent, wood, sky } = palette;
