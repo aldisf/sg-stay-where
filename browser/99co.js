@@ -130,7 +130,7 @@ function n99Extract(opts = {}) {
       building: h1.replace(/^.*?\bfor (Rent|Sale) in\s+/i, "").trim() || null,
       address: locality,
       postal: locality?.match(/\b(\d{6})\b/)?.[1] ?? null,
-      district: p.address?.addressRegion ?? districtOf(locality?.match(/\b(\d{6})\b/)?.[1]),
+      district: districtOf(locality?.match(/\b(\d{6})\b/)?.[1]) ?? p.address?.addressRegion?.match(/^D\d{2}\b/)?.[0] ?? null,
       property_type: props["Property category"] ?? null,
       bedrooms: /studio/i.test(h1) ? 0 : num(props.Bedrooms),
       bathrooms: num(props.Bathrooms),
