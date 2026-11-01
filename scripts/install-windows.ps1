@@ -8,14 +8,19 @@ param([ValidateSet("server", "poll", "both")][string]$Which = "server")
 $ErrorActionPreference = "Stop"
 $repo = Split-Path -Parent $PSScriptRoot
 $node = (Get-Command node).Source
+$agentName = if ($env:SSW_AGENT) { $env:SSW_AGENT } else { "claude" }
+$toolDirs = @((Split-Path -Parent $node))
+$agentCommand = Get-Command $agentName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($agentCommand) { $toolDirs += Split-Path -Parent $agentCommand.Source }
 New-Item -ItemType Directory -Force (Join-Path $repo "data\poll-logs") | Out-Null
 $q = { param($s) "'" + ($s -replace "'", "''") + "'" }
 $cli = "& $(& $q $node) --no-warnings=ExperimentalWarning $(& $q (Join-Path $repo 'src\cli.js'))"
+$environment = "`$env:SSW_AGENT = $(& $q $agentName); `$env:PATH = $(& $q (($toolDirs | Select-Object -Unique) -join ';')) + ';' + `$env:PATH; "
 
 # A hidden PowerShell runs node, so no console window stays open. Tasks run as you,
 # only while you're signed in: polls need your Chrome.
 function Install-Task($name, $command, $trigger, $settings) {
-  $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$command`"" -WorkingDirectory $repo
+  $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -Command `"$environment$command`"" -WorkingDirectory $repo
   Register-ScheduledTask -TaskName $name -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
   "installed $name"
 }
@@ -29,9 +34,8 @@ if ($Which -in "server", "both") {
   "restart after code changes: Stop-ScheduledTask sg-stay-where-server; Start-ScheduledTask sg-stay-where-server"
 }
 if ($Which -in "poll", "both") {
-  $agent = if ($env:SSW_AGENT) { "`$env:SSW_AGENT = $(& $q $env:SSW_AGENT); " } else { "" }
   # Every 2 hours from midnight; StartWhenAvailable runs a poll missed during sleep once on wake.
   $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Hours 2)
   $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 2) -MultipleInstances IgnoreNew
-  Install-Task "sg-stay-where-poll" "$agent$cli poll; exit `$LASTEXITCODE" $trigger $settings
+  Install-Task "sg-stay-where-poll" "$cli poll; exit `$LASTEXITCODE" $trigger $settings
 }
