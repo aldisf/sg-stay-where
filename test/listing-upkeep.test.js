@@ -43,13 +43,15 @@ test("a listing in a building already checked on Google Maps reuses that check, 
   assert.equal((await listing(b.id)).enrichment.facilities.gym[0].walk_min, 6);
 });
 
-test("listings no poll has seen for 3 days are rechecked, and a removed page reads as removed until the user decides", async (t) => {
+test("two-day detail freshness ignores search-card sightings, and removed pages stay removed until the user decides", async (t) => {
   const { store, call, listing } = await tracker(t);
   const [a] = (await call("POST", "/api/import", { listings: [flat(1, "123456")], found_by: "poll" })).body.results;
   await call("PUT", `/api/listings/${a.id}/enrichment`, { source: "google-maps", checked_at: "2026-11-01T00:00:00Z" });
   assert.equal((await listing(a.id)).needsRecheck, false);
-  store.db.prepare("UPDATE listings SET seen_at = ? WHERE id = ?").run(new Date(Date.now() - 4 * 86_400_000).toISOString(), a.id);
+  store.db.prepare("UPDATE listings SET details_at = ? WHERE id = ?").run(new Date(Date.now() - 2 * 86_400_000 - 1000).toISOString(), a.id);
   assert.equal((await listing(a.id)).needsRecheck, true);
+  await call("POST", "/api/import", { listings: [flat(1, "123456", { details_at: undefined })], found_by: "poll" });
+  assert.equal((await listing(a.id)).needsRecheck, true, "a fresh search-card sighting is not a detail-page check");
   await call("POST", "/api/import", { listings: [flat(1, "123456")], found_by: "poll" });
   assert.equal((await listing(a.id)).needsRecheck, false, "seeing it again resets the clock");
 

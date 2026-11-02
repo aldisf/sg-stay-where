@@ -28,6 +28,9 @@ The problems it solves:
 >   default, at most every 2 hours. A poll stops at any CAPTCHA or "are you
 >   human" page and never works around it. The sites' terms limit automated
 >   access. Personal use only.
+>   Detail checks use a shared per-site navigation ceiling (default 10/minute,
+>   with 6–9 second pauses), checking every new page and refreshing details after
+>   two days. Search-card sightings do not reset that timer.
 > - **WhatsApp is optional and uses [Baileys](https://github.com/WhiskeySockets/Baileys),
 >   an unofficial client.** Read Baileys' notes before linking. Don't use it to
 >   send bulk or automated messages. Baileys runs only after you run
@@ -153,7 +156,7 @@ Both run without a chat session. Both need the computer on.
 | Job | Schedule | What it does |
 | --- | --- | --- |
 | **App server** (background service) | Always running | Serves the app. With WhatsApp linked, stores property-chat messages as they arrive and marks replies, viewing times and "may be taken". |
-| **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages). 3. Gets details for up to 40 listings. 4. Reopens up to 5 older listings to find removed ones. 5. Meanwhile, a second agent checks up to 40 listings on Google Maps as their details finish. |
+| **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | Summarises new property-chat messages, scans searches (2 pages each), then drains new and two-day-old detail checks at the per-site RPM ceiling. Maps has a separate queue. Neither queue has a listing-count cap; unfinished work resumes next run. |
 
 Your agent sets up the schedule with [skills/schedule-polls](skills/schedule-polls/SKILL.md):
 a LaunchAgent on macOS, a systemd timer on Linux, a scheduled task on Windows.
@@ -297,16 +300,18 @@ use bot protection (Cloudflare). Many page loads from one browser trigger a
 1. **Interval.** Every 2 hours by default, and at least 20 minutes after the last
    poll started, including Poll now.
 2. **Size.** 2 result pages per search by default (up to 5), one tab on the
-   listing sites, a few seconds between pages.
+   listing sites, randomized pauses under a per-site navigation ceiling
+   (default 10/minute, 6–9 second pauses).
 3. **Bot checks.** A poll waits up to 30 s for a Cloudflare page to clear by
    itself, otherwise skips that site until the next poll. It never clicks through
    a check or works around a block.
-4. **Listing pages.** Each poll opens up to 40 listings for their details (150
-   if you set it) and rechecks up to 5 older ones. Google Maps checks run in a
+4. **Listing pages.** Each poll drains all new and two-day-old detail pages at
+   that pace, without a count cap. A 100-minute deadline leaves unfinished work
+   queued for the next run. Google Maps checks run in a
    second tab on google.com and don't load the listing sites.
 
 Use it for your own home search only. Don't run it as a service, republish
-listings or increase the limits.
+listings or work around a site's blocks.
 
 **Google Maps.** A few lookups per listing in your browser. Google's terms forbid
 bulk extraction; keep it personal.

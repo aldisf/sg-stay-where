@@ -43,7 +43,7 @@ test('how much a poll reads is the user\'s setting, within limits', async t => {
   const filters = { minPrice: 2000, maxPrice: 3000, bedrooms: [1], wholeUnit: true, districts: [] };
 
   const { pollLimits } = (await call('GET', '/api/state?project=home')).body;
-  assert.deepEqual(pollLimits, { pages: { default: 2, max: 5 }, listings: { default: 40, max: 150 } });
+  assert.deepEqual(pollLimits, { pages: { default: 2, max: 5 }, rpm: { default: 10, max: 60 } });
 
   assert.equal((await call('PUT', '/api/projects/home/templates/main', { filters, pages: 5 })).body.searches[0].pages, 5);
   assert.equal((await call('PUT', '/api/projects/home/templates/main', { filters, pages: 6 })).status, 400);
@@ -52,7 +52,6 @@ test('how much a poll reads is the user\'s setting, within limits', async t => {
   assert.equal((await call('POST', '/api/projects/home/searches', { title: 'Too deep', url: 'https://www.propertyguru.com.sg/property-for-rent?minPrice=2200', pages: 9 })).status, 400);
   assert.equal((await call('PATCH', '/api/projects/home/searches/deep', { pages: 6 })).status, 400);
 
-  assert.equal((await call('PATCH', '/api/projects/home', { poll: { listings: 150 } })).body.poll.listings, 150);
-  assert.equal((await call('PATCH', '/api/projects/home', { poll: { listings: 151 } })).status, 400);
-  assert.equal((await call('PATCH', '/api/projects/home', { poll: { listings: 0 } })).status, 400);
+  assert.equal((await call('PATCH', '/api/projects/home', { poll: { rpm: 10 } })).body.poll.rpm, 10);
+  for (const rpm of [0, 61, 1.5, '10']) assert.equal((await call('PATCH', '/api/projects/home', { poll: { rpm } })).status, 400);
 });

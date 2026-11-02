@@ -27,6 +27,7 @@ import { isColiving, scoreListing } from "./score.js";
 import { applyTemplate, DISTRICTS, filtersFromPropertyGuru, newestFirst, POLL_LIMITS } from "./searches.js";
 import { canHashOnServer, photoQueue, photoUrls } from "./photos.js";
 import { JOBS, POLL_GAP_MIN } from "./poll.js";
+import { detailDue, PortalPacer } from "./poll-policy.js";
 
 import { projectVersion, requestSearchBrief, resolveSearchBrief } from "./search-brief.js";
 
@@ -53,7 +54,6 @@ async function body(req) {
 }
 
 // The scheduled poll's job files (scripts/install-macos.sh, skills/schedule-polls).
-const RECHECK_AFTER_DAYS = 3;
 const SHARE_MAPS_DAYS = 90;
 // The Maps agent stops taking work after this, so a run ends before the next
 // scheduled poll (launchd, systemd and Task Scheduler skip a start while one runs).
@@ -120,12 +120,8 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     return { places, stations };
   }
 
-  // Listings still to decide on whose page no poll has seen lately: polls reopen a
-  // few each run so ones taken down leave Review and Watching. From "contacted"
-  // on, the agent's chat says whether it is still available.
   function needsRecheck(listing) {
-    if (!["new", "shortlisted"].includes(listing.status) || listing.merged_into || !listing.details_at || !listing.enriched_at) return false;
-    return Date.now() - Date.parse(listing.seen_at ?? listing.details_at) > RECHECK_AFTER_DAYS * 86_400_000;
+    return !!listing.details_at && detailDue(listing);
   }
 
   // Maps results depend only on where the home is, and every result in a project
@@ -317,32 +313,51 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     return results;
   }
 
-  // The maps agent's work (src/poll.js): listings with page details and a position but
-  // no Google Maps checks, oldest-waiting first, co-living last. Since `since` (the
-  // run's start), each project gets at most poll.listings checks: `left` is what this
-  // run may still take, `waiting` everything queued; after MAPS_RUN_MINUTES, nothing.
+  // The deadline prevents overlap with the next scheduled run; unfinished work
+  // stays queued. Legacy poll.listings values no longer limit either queue.
   function mapsQueue(since, limit) {
     const timeUp = !!since && Date.now() - Date.parse(since) > MAPS_RUN_MINUTES * 60_000;
     const ready = [];
     let waiting = 0;
     for (const p of projects.list().filter((x) => !x.archived)) {
       const all = store.listListings(p.id);
-      const checked = since ? all.filter((l) => l.enriched_at >= since && !l.enrichment?.shared_from).length : 0;
-      const left = timeUp ? 0 : Math.max(0, (p.poll?.listings ?? 40) - checked);
       const queued = all.filter((l) => !l.enriched_at && l.details_at && l.lat != null && l.lng != null && !l.merged_into && !["rejected", "closed", "unavailable"].includes(l.status));
       waiting += queued.length;
-      ready.push(...queued.sort((a, b) => isColiving(a) - isColiving(b) || a.created_at.localeCompare(b.created_at)).slice(0, left));
+      if (!timeUp) ready.push(...queued);
     }
     ready.sort((a, b) => isColiving(a) - isColiving(b) || a.created_at.localeCompare(b.created_at));
     const listings = ready.slice(0, limit).map((l) => ({ id: l.id, project: l.project_id, title: l.title, address: l.address, postal: l.postal, lat: l.lat, lng: l.lng, source_mrts: l.source_mrts ?? [] }));
     return { now: new Date().toISOString(), listings, left: ready.length, waiting, timeUp, criteria: Object.fromEntries([...new Set(listings.map((l) => l.project))].map((id) => [id, criteriaOf(projects.get(id))])), sitesPollRunning: jobRunning("sites") };
   }
 
+  const pacer = new PortalPacer(path.join(dataDir, "portal-pace.json"));
   const routes = [
+
+    ["POST", /^\/api\/poll\/permit$/, async (req) => {
+      const { site } = await body(req);
+      if (!["propertyguru", "99co", "carousell"].includes(site)) throw new HttpError(400, "site must be propertyguru, 99co or carousell");
+      const active = projects.list().filter((p) => !p.archived);
+      const rpm = Math.min(...active.map((p) => p.poll?.rpm ?? POLL_LIMITS.rpm.default), POLL_LIMITS.rpm.max);
+      return pacer.permit(site, rpm);
+    }],
+
+    ["GET", /^\/api\/queue\/details$/, async (req, match, url) => {
+      const since = url.searchParams.get("since");
+      if (since && !Number.isFinite(Date.parse(since))) throw new HttpError(400, "since must be a timestamp");
+      const timeUp = !!since && Date.now() - Date.parse(since) > MAPS_RUN_MINUTES * 60_000;
+      const limit = Math.min(10, Math.max(1, Number(url.searchParams.get("limit")) || 2));
+      const queued = projects.list().filter((p) => !p.archived).flatMap((p) => store.listListings(p.id)).filter((l) => detailDue(l));
+      queued.sort((a, b) => isColiving(a) - isColiving(b) || (a.details_at ?? a.created_at).localeCompare(b.details_at ?? b.created_at) || a.id - b.id);
+      const excluded = new Set((url.searchParams.get("exclude") ?? "").split(",").map(Number));
+      const blocked = new Set((url.searchParams.get("excludeSites") ?? "").split(","));
+      const ready = queued.filter((l) => !excluded.has(l.id) && !blocked.has(l.source));
+      return { now: new Date().toISOString(), listings: timeUp ? [] : ready.slice(0, limit), waiting: queued.length, timeUp };
+    }],
 
     // `wait` (seconds, up to 60) holds an empty answer while the listing-site agent can still add work.
     ["GET", /^\/api\/queue\/maps$/, async (req, match, url) => {
       const since = url.searchParams.get("since");
+      if (since && !Number.isFinite(Date.parse(since))) throw new HttpError(400, "since must be a timestamp");
       const limit = Math.min(10, Math.max(1, Number(url.searchParams.get("limit")) || 2));
       const until = Date.now() + Math.min(60, Math.max(0, Number(url.searchParams.get("wait")) || 0)) * 1000;
       for (;;) {

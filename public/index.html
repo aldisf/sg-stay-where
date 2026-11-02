@@ -113,9 +113,9 @@
         <p id="buy-searches-note" class="card hint" hidden>Buying: your agent sets up each site's search in your browser (property type, tenure, area, price) and adds it by link below, or from your description above.</p>
         <ul id="searches" class="search-list"></ul>
         <form id="poll-form" class="card form">
-          <h3>How much each poll reads</h3>
-          <label class="inline">Listings checked per poll <input name="listings" type="number" min="1" value="40"></label>
-          <p class="hint">Page details and Google Maps checks, oldest first; result pages per search are set in the template. Defaults: 2 pages per search, 40 listings per poll. Need older listings? Ask your agent to backfill, for example "backfill 5 pages of each search".</p>
+          <h3>Browsing pace</h3>
+          <label class="inline">Page navigations per minute, per site <input name="rpm" type="number" min="1" value="10"></label>
+          <p class="hint">Scans run every two hours. All new listings and details last checked at least two days ago are queued, oldest first, with no listing-count cap. Pauses vary; at 10 per minute they last 6–9 seconds. The lowest active project's pace applies across projects. Result pages per search are set in the template.</p>
         </form>
         <form id="search-form" class="card form">
           <h3>Add a search by link</h3>

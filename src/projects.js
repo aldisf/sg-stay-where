@@ -81,8 +81,8 @@ export function checkProject(p) {
     if (!/^https:\/\/(www\.)?(propertyguru\.com\.sg|99\.co|carousell\.sg)\//.test(s.url ?? "")) errors.push(`searches[${i}].url must be a PropertyGuru, 99.co or Carousell search URL`);
     if (s.pages != null && !validPages(s.pages)) errors.push(`searches[${i}].pages must be between 1 and ${POLL_LIMITS.pages.max} (polls stay gentle on the sites)`);
   }
-  const listings = p.poll?.listings;
-  if (listings != null && !(Number.isInteger(listings) && listings >= 1 && listings <= POLL_LIMITS.listings.max)) errors.push(`poll.listings must be between 1 and ${POLL_LIMITS.listings.max}`);
+  const rpm = p.poll?.rpm;
+  if (rpm != null && !(Number.isInteger(rpm) && rpm >= 1 && rpm <= POLL_LIMITS.rpm.max)) errors.push(`poll.rpm must be between 1 and ${POLL_LIMITS.rpm.max}`);
   for (const pattern of p.skip?.titlePatterns ?? []) { try { new RegExp(pattern, "i"); } catch { errors.push(`skip.titlePatterns "${pattern}" is not a valid regex`); } }
   return errors;
 }

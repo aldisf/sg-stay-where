@@ -7,16 +7,17 @@ with two agents side by side (see [Scheduling](#scheduling)).
 
 How the two queues work:
 
-1. **Listing sites** (steps 0–2): new listings from the searches, then page
-   details, at most `poll.listings` per project per run.
+1. **Listing sites** (steps 0–2): scan searches every two hours, then drain all
+   new or stale details from `GET /api/queue/details`. No listing-count cap.
 2. **Google Maps** (step 3): every listing whose details are done and whose
-   position is known. `GET /api/queue/maps` hands them out oldest first, also at
-   most `poll.listings` per project per run.
+   position is known. `GET /api/queue/maps` hands them out oldest first, without
+   a listing-count cap.
 3. A scheduled poll runs one agent per queue, each in its own tab, so Maps checks
    start as soon as the first page details are saved. Google Maps never touches
    the listing sites, so this adds no load on them.
-4. In a chat, one agent does both: after every two listing pages, check the
-   listings that just got their details.
+4. In a chat, one agent does both: drain due listing details first, then take
+   ready Maps work within the same run deadline. Maps-only runs can also drain
+   their queue between scans without revisiting portals.
 
 The tracker is at http://127.0.0.1:7431. Reach its API with
 `node src/cli.js api <METHOD> <path> [json]` (local only; it refuses the send
@@ -42,14 +43,25 @@ defaults filled in), `listings[]` with `needsDetails`, `needsMaps`,
 merged listings. Skip `closed` and `unavailable` for sourcing/details/maps; their
 new chat messages may still be summarised without reopening them.
 
-Work oldest-waiting first (`created_at` ascending, co-living last), at most
-`project.poll.listings` listings per run for step 2 and again for step 3
-(default 40, up to 150 in the Searches tab), so leftovers from a run that hit its
-limit are done before newer finds. A listing page is one load on a listing site;
-its Google Maps checks don't touch the listing sites. When more listings wait than the limit (after a
-first poll or a backfill) and the user is in the session, tell them how many and
-offer to keep going in this run, up to 150. The Review deck only shows a listing once both its
-details and its Google Maps checks are done.
+Work oldest-waiting first, co-living last. Detail pages expire two days after
+`details_at`, the last successful page extraction. `seen_at` records search-card
+sightings too, so it never establishes detail freshness. Both queues have a
+100-minute run deadline to leave room before the next scheduled scan; finish
+started work, then resume leftovers next run. `poll.listings` from older project
+files is ignored. The Review deck only shows a listing once both its details and
+Google Maps checks are done.
+
+Before every portal navigation, reload, pagination or **Show more results** action:
+
+1. `node src/cli.js api POST /api/poll/permit '{"site":"propertyguru"}'`
+   (or `99co`, `carousell`).
+2. When `allowed` is false, wait `wait_ms` milliseconds and ask again. Navigate
+   only after an allowed answer; one grant permits one immediate navigation.
+3. Grants share one persistent ledger across workers, projects and server restarts.
+   The lowest `poll.rpm` among unarchived projects applies (default 10). Pauses
+   vary from one to 1.5 times `60 / rpm` seconds: 6–9 seconds at 10 RPM. RPM is a
+   ceiling, not a target to catch up to. This counts page actions, not the site's
+   own subresource requests. Google Maps does not consume a portal's allowance.
 
 New imports start as `new` (Review). The user swipes them to Watching
 (`shortlisted`) or Not interested (`rejected`); a poll never sets those three
@@ -125,16 +137,15 @@ current searches; do not invent a location, budget or household fact.
 1. Open the search `url`, result pages 1..`pages` (default 2, at most 5), newest
    first. Paging: PropertyGuru `&page=N`; 99.co `&page_num=N`; Carousell has no
    page parameter: press **Show more results** once per extra page (each adds
-   about 47 cards in place) and run the extractor on the whole list. Pause a few
-   seconds (3–8 s, varied) between pages on the listing sites.
-   A Cloudflare "Just a moment" or "Performing security verification" page
+   about 47 cards in place) and run the extractor on the whole list.
+   Obtain a permit for each page action, as above. A Cloudflare "Just a moment" or "Performing security verification" page
    usually clears by itself, and checks come and go: wait 10 s and check again,
    up to 30 s. Never click it.
    1. Still there, or asking you to tick a box: record the skip with
       `POST /api/polls {"search": "<search title>", "note": "skipped: Cloudflare check"}`
       and go on to the next search.
-   2. After the other searches, retry each skipped search once, at least 2
-      minutes later. Still blocked: leave it.
+   2. Leave that portal for the rest of this run, including its queued details.
+      Try it again at the next scheduled scan. Continue other portals and Maps.
    3. The next poll starts with searches whose last entry in `searchLast`
       (`GET /api/state`) has a note. The Searches tab shows the note too.
 2. Load the extractor once per tab per origin, then call it. Page globals are
@@ -187,6 +198,15 @@ current searches; do not invent a location, budget or household fact.
 
 ## 2. Details for listings with `needsDetails`
 
+Read `GET /api/queue/details` (default two listings, `limit` up to 10). It covers
+all unarchived projects and returns never-checked and two-day-old detail pages
+in Review or Watching, even if Maps is unfinished. Keep its first `now` as
+`since` on later calls. Obtain a portal permit, open each page, save its details
+and coordinates, then ask again. Continue until empty or `timeUp`. Pass failed
+IDs as `exclude=1,2` and challenged sites as `excludeSites=propertyguru` on later
+calls so an inaccessible page cannot starve other work. Do not fabricate a
+successful check timestamp for failures. Exclusions apply only to this run.
+
 Open the listing URL, screenshot with `save_to_disk`, run the extractor and
 import as above with `found_by: 'poll'` and `project`, but no `poll` field (it
 records a search run on the Searches tab). A listing import is done when the
@@ -213,12 +233,11 @@ page moves on to the tracker at `/#/listing-<id>`. Attach the screenshot:
 
 ## 2b. Recheck listings with `needsRecheck`
 
-Listings in Review or Watching whose page no poll has seen for 3 days. Open up to
-5 per run, oldest `seen_at` first (`details_at` when it has none), after step 2 and
-within the same pause rules:
+Listings in Review or Watching whose detail page was checked at least two days
+ago are included in the detail queue. There is no separate five-listing cap.
 
 1. Still listed: run the extractor and import it as in step 2. That refreshes its
-   price and `seen_at`.
+   price and `details_at`. Re-importing a search card does not refresh details.
 2. Gone (as above): if the card lists other sites (`sites` has more than one), open
    that copy (`also[].url`) first; only when every copy is gone, PATCH it
    `unavailable`.
@@ -228,7 +247,7 @@ within the same pause rules:
 The queue: `GET /api/queue/maps` returns up to 2 listings (`limit`, at most 10)
 with page details and a position, their projects' `criteria`, `now`, `left` (what
 this run may still take) and `waiting` (all queued). Pass the first call's `now`
-as `since` on later calls to keep each project to `poll.listings` checks a run.
+as `since` on later calls to keep the same run deadline. There is no count cap.
 `wait=<seconds>` (up to 60) holds an empty answer while `sitesPollRunning` is true,
 for an agent working beside the listing-site agent. 100 minutes after `since` the
 queue answers `timeUp: true` and no listings, so a run ends before the next
@@ -302,21 +321,20 @@ listing sites, the search's result pages (2 by default), no parallel tabs there
 (the Maps agent's tab is on google.com). At any CAPTCHA or "are
 you human" page it skips the search and never tries to get past it.
 
-What one poll reads is the user's setting, in the Searches tab or through the API:
-result pages per search (`pages`, 1–5, default 2; the template sets it for its
-searches) and listings checked per run (`poll.listings`, 1–150, default 40;
-`PATCH /api/projects/<id>` `{ "poll": { "listings": 20 } }`). Raise them when the
-user asks; say that more pages mean more load on the sites and a higher chance of
-a human check.
+Set result pages per search (`pages`, 1–5, default 2) in the template. Set portal
+pace in Searches or with `PATCH /api/projects/<id>`
+`{ "poll": { "rpm": 10 } }` (1–60 page navigations per minute per site). All due
+details are checked at that pace; there is no per-run listing cap. Scans keep the
+two-hour schedule, and blocked portals are deferred until the next scan.
 
 ### Backfill on request
 
 When the user asks for older listings ("backfill", "go further back", "check 5
 pages of each search"), run one poll by hand with deeper settings for this run
-only; never change the saved `pages` or `poll.listings` for it. Confirm the depth
+only; never change the saved `pages` or `poll.rpm` for it. Confirm the depth
 first: how many result pages per search (up to 10) and how many listings to check.
-Read pages one at a time in one tab, pause a few seconds between pages as a person
-would, and stop at any CAPTCHA or human check. Import exactly as a poll does
+Read pages one at a time in one tab, obtaining a navigation permit for each page,
+and stop at any CAPTCHA or human check. Import exactly as a poll does
 (`found_by: 'poll'`), so the skip rules apply.
 Listings beyond what this run checks wait for the next polls, oldest first.
 

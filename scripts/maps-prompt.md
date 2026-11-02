@@ -13,8 +13,8 @@ Read docs/polling.md step 3 and follow it exactly. For this unattended run:
   2. Check each listing in `listings` against its project's `criteria` (both in the
      answer) as step 3 says, and save the results through the import page.
   3. Ask again with `node src/cli.js api GET "/api/queue/maps?since=<now>&wait=60"`,
-     always with the first call's `now`: it limits this run to each project's
-     `poll.listings` checks.
+     always with the first call's `now`: it sets the run deadline. There is no
+     listing-count cap; drain all ready work within that deadline.
   4. An empty `listings` while `sitesPollRunning` is true means the other agent may
      still add work: ask again (the call waits up to 60 s for it). Stop when
      `listings` is empty and `sitesPollRunning` is false, or when `timeUp` is true

@@ -164,9 +164,11 @@ Step-by-step guides in `skills/`, for any agent:
   `GET /api/queue/maps` (docs/polling.md).
 - **Listing data comes from the user's browser** (`browser/*.js` extractors handed
   over through `/import#<json>`); listing sites block server fetches. Be gentle:
-  2 result pages per search per poll by default (the user can set 1–5, and
-  `poll.listings`; deeper only as a one-off backfill they ask for, docs/polling.md),
-  no parallel tabs hammering a site.
+  2 result pages per search per poll by default (the user can set 1–5).
+  `poll.rpm` limits portal navigations per minute, default 10 with randomized
+  pauses; detail checks have no count cap and expire after two days. Get a
+  `/api/poll/permit` grant before each portal navigation. Deeper searches only
+  as a one-off backfill they ask for (docs/polling.md). No parallel tabs hammering a site.
   Work in a tab you open yourself; never take over or close the user's tabs.
 - **The server stays on 127.0.0.1.** Writes need JSON from a known origin; remote
   access only through an authenticated tunnel (data/server.json).
@@ -209,7 +211,7 @@ Step-by-step guides in `skills/`, for any agent:
   ],
   "bonus": { "allBoxes": 10, "proximity": 5 },
   "filters": { "hideColiving": true },
-  "poll": { "listings": 40 },        // listings checked per poll (1–150); pages are per search (1–5)
+  "poll": { "rpm": 10 },             // per-site navigation ceiling; pages are per search (1–5)
   "searches": [ { "id": "pg-central", "title": "PropertyGuru · central", "site": "propertyguru",
                   "url": "https://www.propertyguru.com.sg/property-for-rent?…", "pages": 2, "active": true } ],
   "skip": { "agents": [], "titlePatterns": ["short[- ]term", "room rental"] },

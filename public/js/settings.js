@@ -63,9 +63,9 @@ export function renderSearches() {
   renderTemplate();
   renderSearchBrief();
   $("#search-form [name=pages]").max = state.pollLimits.pages.max;
-  const listings = $("#poll-form [name=listings]");
-  listings.max = state.pollLimits.listings.max;
-  if (document.activeElement !== listings) listings.value = state.project.poll?.listings ?? state.pollLimits.listings.default;
+  const rpm = $("#poll-form [name=rpm]");
+  rpm.max = state.pollLimits.rpm.max;
+  if (document.activeElement !== rpm) rpm.value = state.project.poll?.rpm ?? state.pollLimits.rpm.default;
   const searches = state.project.searches ?? [];
   $("#searches").innerHTML = searches.map((s) => {
     const last = state.searchLast?.[s.title] ?? state.searchLast?.[s.id];
@@ -332,11 +332,11 @@ export function wireSettings(showTab) {
     }
   });
   $("#poll-form").addEventListener("submit", (ev) => ev.preventDefault());
-  $("#poll-form [name=listings]").addEventListener("change", async (ev) => {
+  $("#poll-form [name=rpm]").addEventListener("change", async (ev) => {
     const input = ev.target;
     if (!input.checkValidity()) { input.reportValidity(); return; }
     try {
-      await api(`/api/projects/${projectId}`, { method: "PATCH", body: { poll: { ...state.project.poll, listings: Number(input.value) } } });
+      await api(`/api/projects/${projectId}`, { method: "PATCH", body: { poll: { rpm: Number(input.value) } } });
       await refresh();
     } catch (error) {
       toast(`Not saved: ${error.message}`);
