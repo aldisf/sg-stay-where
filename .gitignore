@@ -1,0 +1,16 @@
+node_modules/
+data/
+data-demo/
+.env
+*.log
+.DS_Store
+test-results*/
+playwright-report/
+.claude/
+scripts/demo-film/
+scripts/screenshots.py
+# Videos and GIFs are hosted on GitHub as attachments, never committed.
+*.mp4
+*.mov
+*.webm
+*.gif

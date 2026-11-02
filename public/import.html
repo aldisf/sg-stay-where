@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Import · sg-stay-where</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main>
+    <h1>Import</h1>
+    <p id="out">Importing…</p>
+  </main>
+  <script type="module">
+    import { hashImagesInBrowser } from "/lib/photohash.js";
+    const out = document.getElementById("out");
+
+    // Google Maps results gathered in Chrome: { enrichment: { <listingId>: {...} } }
+    async function saveEnrichment(enrichment) {
+      for (const [id, data] of Object.entries(enrichment)) {
+        const r = await fetch(`/api/listings/${Number(id)}/enrichment`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
+        if (!r.ok) throw new Error((await r.json()).error);
+      }
+      out.textContent = `Saved Google Maps results for ${Object.keys(enrichment).length} listing(s).`;
+    }
+
+    async function importListings(payload) {
+      const res = await fetch("/api/import", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ listings: payload.listings, found_by: payload.found_by ?? "bookmarklet", poll: payload.poll ?? null, project: payload.project ?? null })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await fingerprint(payload.listings.filter((l) => l.url), data.results);
+      if (payload.kind === "listing" && data.results[0]) {
+        location.replace(`/#/listing-${data.results[0].id}`);
+      } else {
+        out.textContent = `Done. Imported ${data.imported} listings (${data.created} new).`;
+        out.insertAdjacentHTML("beforeend", ' <a href="/">Open tracker</a>');
+      }
+    }
+
+    // 99.co's photos can only be read here, in the browser; the server
+    // fingerprints PropertyGuru's. A poll waits for "Done" before moving on.
+    async function fingerprint(items, results) {
+      let made = 0;
+      for (const [i, item] of items.entries()) {
+        const id = results[i]?.id;
+        const urls = (item.photos ?? []).filter((p) => p.kind !== "floor plan" && p.src && !/pgimgs\.com/.test(p.src)).map((p) => p.src);
+        if (!id || !urls.length) continue;
+        out.textContent = `Saved. Matching photos ${i + 1}/${items.length}…`;
+        const hashes = await hashImagesInBrowser(urls, { limit: 8 });
+        if (!hashes.length) continue;
+        await fetch(`/api/listings/${id}/photo-hashes`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ hashes }) });
+        made += 1;
+      }
+      return made;
+    }
+
+    try {
+      // The bookmarklet hands listings over in the URL fragment, which never
+      // leaves the browser. Clear it as soon as it is read.
+      const payload = JSON.parse(decodeURIComponent(location.hash.slice(1)));
+      history.replaceState(null, "", "/import");
+      await (payload.enrichment ? saveEnrichment(payload.enrichment) : importListings(payload));
+    } catch (error) {
+      out.textContent = `Import failed: ${error.message}`;
+    }
+  </script>
+</body>
+</html>
