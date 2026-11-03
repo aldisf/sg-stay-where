@@ -168,7 +168,8 @@ Step-by-step guides in `skills/`, for any agent:
   `GET /api/queue/maps` (docs/polling.md).
 - **Listing data comes from the user's browser** (`browser/*.js` extractors handed
   over through `/import#<json>`); listing sites block server fetches. Be gentle:
-  2 result pages per search per poll by default (the user can set 1–5), at most
+  2 result pages per search per poll by default (the user can set 1–5), more
+  only while the import answers `readNext` (up to 5), at most
   `poll.listings` listing pages per poll (default 40), and a
   `POST /api/poll/permit` grant before each listing-site page load (`poll.rpm`,
   default 10 a minute per site, varied pauses). Deeper only as a one-off backfill

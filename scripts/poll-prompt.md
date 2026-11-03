@@ -20,7 +20,10 @@ Read docs/polling.md first and follow it exactly. For this unattended run:
 - Use your browser tool on the user's own Chrome, in one new tab you open yourself, and
   close it when done. Never navigate, reload or close a tab you did not open. With Chrome
   DevTools MCP: `new_page` with `background: true`, `select_page` on it, `close_page` at the end.
-- Result pages: each search's `pages` (default 2). Before every listing-site page
+- Result pages: each search's `pages` (default 2). Keep going while the last page's
+  import answers `readNext: true` (the import page says "Read next page"), up to 5
+  pages: its oldest card is new, so listings since the last poll continue on the
+  next page. Before every listing-site page
   load (open, reload, next page, Show more), get a grant:
   `node src/cli.js api POST /api/poll/permit '{"site":"propertyguru","wait":30}'`
   (or `99co`, `carousell`). It answers when the next load is due; load the page

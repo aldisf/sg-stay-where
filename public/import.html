@@ -36,7 +36,7 @@
       if (payload.kind === "listing" && data.results[0]) {
         location.replace(`/#/listing-${data.results[0].id}`);
       } else {
-        out.textContent = `Done. Imported ${data.imported} listings (${data.created} new).`;
+        out.textContent = `Done. Imported ${data.imported} listings (${data.created} new).${data.readNext ? " Read next page: the oldest card is new." : ""}`;
         out.insertAdjacentHTML("beforeend", ' <a href="/">Open tracker</a>');
       }
     }

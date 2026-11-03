@@ -26,9 +26,11 @@ https://github.com/user-attachments/assets/3fc23bc2-3cc9-4e42-aac8-d94b1706ba7f
 >
 > - **Polls browse at a person's pace.** One tab on the listing sites, at most
 >   10 page loads a minute per site with varied 6–9 s pauses, 2 result pages per
->   search and up to 40 listing pages per poll, every 2 hours. A poll stops at
->   any CAPTCHA or "are you human" page and never works around it. The sites'
->   terms limit automated access. Personal use only.
+>   search (up to 5 after a missed poll) and up to 40 listing pages per poll,
+>   every 2 hours. A poll stops at any CAPTCHA or "are you human" page and never
+>   works around it.
+> - **Use it responsibly and at your own risk.** The sites' terms limit
+>   automated access. Personal use only.
 > - **WhatsApp is optional and uses [Baileys](https://github.com/WhiskeySockets/Baileys),
 >   an unofficial client.** Read Baileys' notes before linking. Don't use it to
 >   send bulk or automated messages. Baileys runs only after you run
@@ -158,7 +160,7 @@ Both run without a chat session. Both need the computer on.
 | Job | Schedule | What it does |
 | --- | --- | --- |
 | **App server** (background service) | Always running | Serves the app. With WhatsApp linked, stores property-chat messages as they arrive and marks replies, viewing times and "may be taken". |
-| **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages). 3. Opens up to 40 listing pages: new ones first, then up to 5 that no search has shown for 3 days. 4. Meanwhile, a second agent checks listings on Google Maps as their details finish. Whatever is left waits for the next poll. |
+| **Poll** (agent run) | Every 2 hours on the hour, once after waking if one was missed, and on **Poll now** | 1. Summarises new WhatsApp messages, one summary per home. 2. Reads new listings from each search (2 pages, up to 5 after a missed poll). 3. Opens up to 40 listing pages: new ones first, then up to 5 that no search has shown for 3 days. 4. Meanwhile, a second agent checks listings on Google Maps as their details finish. Whatever is left waits for the next poll. |
 
 Your agent sets up the schedule with [skills/schedule-polls](skills/schedule-polls/SKILL.md):
 a LaunchAgent on macOS, a systemd timer on Linux, a scheduled task on Windows.
@@ -316,12 +318,13 @@ use bot protection (Cloudflare). Many page loads from one browser trigger a
 3. **Bot checks.** A poll waits up to 30 s for a Cloudflare page to clear by
    itself, otherwise skips that site until the next poll. It never clicks through
    a check or works around a block.
-4. **Size.** 2 result pages per search (up to 5) and up to 40 listing pages
+4. **Size.** 2 result pages per search (you can set up to 5; a poll reads on to 5
+   only while a page is still all new, after a missed poll) and up to 40 listing pages
    per poll (150 if you set it), about 15 minutes of browsing per site. Google
    Maps checks run in a second tab on google.com and don't load the listing sites.
 
-Use it for your own home search only. Don't run it as a service, republish
-listings or work around a site's blocks.
+Use it for your own home search only, responsibly and at your own risk. Don't
+run it as a service, republish listings or work around a site's blocks.
 
 **Google Maps.** A few lookups per listing in your browser. Google's terms forbid
 bulk extraction; keep it personal.

@@ -490,7 +490,10 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       if (!Array.isArray(input.listings)) throw new HttpError(400, "Send a listings array (empty is allowed for a search with no matches).");
       const results = importListings(input.listings, input.found_by ?? "import", input.project);
       if (input.poll) store.recordPoll({ search: input.poll, seen: results.length, added: results.filter((r) => r.created).length, note: input.note ?? null });
-      return { imported: results.length, created: results.filter((r) => r.created).length, results };
+      // Result pages are newest first: an oldest card never seen before means the
+      // page stopped short of the last poll's listings, so the gap continues on the next page.
+      const readNext = !!input.poll && !!results.at(-1)?.created;
+      return { imported: results.length, created: results.filter((r) => r.created).length, readNext, results };
     }],
 
     // "Not interested" (status → rejected) also hides the flat's repeats;

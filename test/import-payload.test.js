@@ -32,3 +32,22 @@ test('imports reject unsupported Maps payloads without recording a successful po
   assert.equal((await empty.json()).imported, 0);
   assert.equal(store.recentPolls(1)[0].search, 'empty search');
 });
+
+test('a result page whose oldest card is new asks for the next page', async t => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'ssw-import-next-'));
+  const store = new Store(':memory:');
+  const projects = new ProjectFiles(path.join(dir, 'projects'));
+  projects.save(newProject({ title: 'Home' }));
+  const server = await startServer({ root: fileURLToPath(new URL('../', import.meta.url)), dataDir: dir, store, projects, log: () => {} });
+  t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); store.close(); await rm(dir, { recursive: true, force: true }); });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const post = async body => (await fetch(origin + '/api/import', { method: 'POST', headers: { origin, 'content-type': 'application/json' }, body: JSON.stringify(body) })).json();
+  const card = id => ({ source: 'propertyguru', source_id: String(id), url: `https://www.propertyguru.com.sg/listing/for-rent-flat-${id}`, title: `Flat ${id}`, price: 3000 + id, bedrooms: 2 });
+  const page = ids => ({ project: 'home', found_by: 'poll', poll: 'PG', listings: ids.map(card) });
+
+  assert.equal((await post(page([5, 4, 3]))).readNext, true, 'first page, nothing seen before');
+  assert.equal((await post(page([7, 6, 5]))).readNext, false, 'reached the last poll');
+  assert.equal((await post(page([9, 8]))).readNext, true, 'new all the way down: a gap');
+  assert.equal((await post(page([]))).readNext, false, 'no cards, nothing further');
+  assert.equal((await post({ project: 'home', listings: [card(10)] })).readNext, false, 'not a poll');
+});
