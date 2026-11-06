@@ -110,7 +110,7 @@ function describe(f) {
 // How much one poll reads. The defaults keep it at browsing pace; the user can
 // raise them up to max, and asks their agent for a one-off backfill beyond that.
 // rpm: listing-site page loads per minute per site; 12 is about as fast as a person clicks through.
-export const POLL_LIMITS = { pages: { default: 2, max: 5 }, listings: { default: 40, max: 150 }, rpm: { default: 10, max: 12 } };
+export const POLL_LIMITS = { pages: { default: 5, max: 5 }, listings: { default: 40, max: 150 }, rpm: { default: 10, max: 12 } };
 export const validPages = (n) => Number.isInteger(n) && n >= 1 && n <= POLL_LIMITS.pages.max;
 
 export function searchesFromTemplate(filters, { sites = ["propertyguru", "99co", "carousell"], template = "main", pages = POLL_LIMITS.pages.default } = {}) {

@@ -132,7 +132,7 @@
       "title": "PropertyGuru · whole unit, studio/1BR/2BR, S$2.5k–3.5k, 10 districts",
       "site": "propertyguru",
       "url": "https://www.propertyguru.com.sg/property-for-rent?listingType=rent&isCommercial=false&minPrice=2500&maxPrice=3500&bedrooms=0&bedrooms=1&bedrooms=2&entireUnitOrRoom=ent&districtCode=D01&districtCode=D02&districtCode=D03&districtCode=D04&districtCode=D05&districtCode=D08&districtCode=D09&districtCode=D10&districtCode=D11&districtCode=D12&sort=date&order=desc",
-      "pages": 2,
+      "pages": 5,
       "active": true,
       "template": "main"
     },
@@ -141,7 +141,7 @@
       "title": "99.co · whole unit, studio/1BR/2BR, S$2.5k–3.5k, 10 districts",
       "site": "99co",
       "url": "https://www.99.co/singapore/rent?main_category=all&name=Singapore&query_name=Singapore&property_segments=residential&price_range=2500%2C3500&rental_type=unit&rooms=0%2C1%2C2&sort_field=recency&sort_order=desc&page_size=36",
-      "pages": 2,
+      "pages": 5,
       "active": true,
       "template": "main",
       "districts": [
@@ -163,7 +163,7 @@
       "title": "Carousell · whole unit, studio/1BR/2BR, S$2.5k–3.5k, 10 districts",
       "site": "carousell",
       "url": "https://www.carousell.sg/categories/property-102/rent-in-singapore-229/?price_start=2500&price_end=3500&property_bedrooms=BEDROOMS_0_BEDROOMS_STUDIO%2CBEDROOMS_1_BEDROOM%2CBEDROOMS_2_BEDROOMS&sort_by=3",
-      "pages": 2,
+      "pages": 5,
       "active": true,
       "template": "main",
       "why": "Carousell filters price and bedrooms only. Rooms are skipped by your skip rules; listings outside your districts are dropped once their page gives the postal code.",
@@ -232,7 +232,7 @@
         "99co",
         "carousell"
       ],
-      "pages": 2
+      "pages": 5
     }
   }
 }

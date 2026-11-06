@@ -20,7 +20,7 @@ Read docs/polling.md first and follow it exactly. For this unattended run:
 - Use your browser tool on the user's own Chrome, in one new tab you open yourself, and
   close it when done. Never navigate, reload or close a tab you did not open. With Chrome
   DevTools MCP: `new_page` with `background: true`, `select_page` on it, `close_page` at the end.
-- Result pages: each search's `pages` (default 2). Keep going while the last page's
+- Result pages: each search's `pages` (default 5). Below 5, keep going while the last page's
   import answers `readNext: true` (the import page says "Read next page"), up to 5
   pages: its oldest card is new, so listings since the last poll continue on the
   next page. Before every listing-site page

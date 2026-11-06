@@ -51,7 +51,7 @@ Captchas or browser disconnection can delay sourcing.
     "minPrice": 2500, "maxPrice": 3500,
     "bedrooms": [0, 1, 2], "wholeUnit": true, "districts": ["D03", "D05"]
   },
-  "sites": ["propertyguru", "99co", "carousell"], "pages": 2,
+  "sites": ["propertyguru", "99co", "carousell"], "pages": 5,
   "explanation": "Whole studio to 2BR in D03/D05, up to S$3,500. The commute remains a scored requirement.",
   "project": {
     "budget": {"min": 2500, "max": 3300, "stretchMax": 3500, "spread": 300}
@@ -103,7 +103,7 @@ the search on the site itself:
 
 1. Open the portal in the user's Chrome and set the filters by hand, or ask the
    user to. Copy the address bar.
-2. `POST /api/projects/:id/searches {"title": "PropertyGuru · HDB near Bishan", "url": "<copied>", "pages": 2}`.
+2. `POST /api/projects/:id/searches {"title": "PropertyGuru · HDB near Bishan", "url": "<copied>", "pages": 5}`.
    The server adds the newest-first sort (polls read the first pages only),
    accepts 1–5 pages and refuses non-portal URLs.
 3. Run the extractor on that page once to confirm it returns cards

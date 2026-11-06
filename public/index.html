@@ -116,13 +116,13 @@
           <h3>How much each poll reads</h3>
           <label class="inline">Listing pages opened per poll <input name="listings" type="number" min="1" value="40"></label>
           <label class="inline">Page loads per minute, per site <input name="rpm" type="number" min="1" value="10"></label>
-          <p class="hint">New listings first, oldest first, then up to 5 that no search has shown for 3 days. Pauses between pages vary like a person's: 6–9 seconds at 10 per minute. Defaults: 2 result pages per search (set in the template), 40 listing pages per poll, 10 page loads per minute. Google Maps checks don't count. Need older listings? Ask your agent to backfill, for example "backfill 5 pages of each search".</p>
+          <p class="hint">New listings first, oldest first, then up to 5 that no search has shown for 3 days. Pauses between pages vary like a person's: 6–9 seconds at 10 per minute. Defaults: 5 result pages per search (set in the template), 40 listing pages per poll, 10 page loads per minute. Google Maps checks don't count. Need older listings? Ask your agent to backfill, for example "backfill 10 pages of each search".</p>
         </form>
         <form id="search-form" class="card form">
           <h3>Add a search by link</h3>
           <label>Title <input name="title" required placeholder="PropertyGuru · Tiong Bahru 1BR"></label>
           <label>Search page URL <input name="url" type="url" required placeholder="https://www.propertyguru.com.sg/property-for-rent?…"></label>
-          <label class="inline">Result pages per poll <input name="pages" type="number" min="1" value="2"></label>
+          <label class="inline">Result pages per poll <input name="pages" type="number" min="1" value="5"></label>
           <p class="hint">Set up the search on the site (area, price, bedrooms, sorted by newest), then copy the address bar.</p>
           <button type="submit">Add search</button>
         </form>

@@ -99,7 +99,7 @@ written:
 
 ```sh
 node src/cli.js api PUT /api/projects/<id>/templates/main \
-  '{"filters":{"minPrice":2500,"maxPrice":3600,"bedrooms":[0,1,2],"wholeUnit":true,"districts":["D01","D02","D09"]},"sites":["propertyguru","99co","carousell"],"pages":2}'
+  '{"filters":{"minPrice":2500,"maxPrice":3600,"bedrooms":[0,1,2],"wholeUnit":true,"districts":["D01","D02","D09"]},"sites":["propertyguru","99co","carousell"],"pages":5}'
 ```
 
 The user can also give a plain-language brief; use the revisioned plan API in
@@ -117,11 +117,11 @@ tenure), check page 1 with the site's reader, and save the address bar. Give a
 
 For anything the template can't express (an MRT line, a property type, a
 keyword), build the search **on the site, in the browser**, and add the address
-bar as a search. The server sorts it newest first; `pages` is 1–5 (default 2):
+bar as a search. The server sorts it newest first; `pages` is 1–5 (default 5):
 
 ```sh
 node src/cli.js api POST /api/projects/<id>/searches \
-  '{"title":"PropertyGuru · HDB near Bishan","url":"https://www.propertyguru.com.sg/property-for-rent?…","pages":2}'
+  '{"title":"PropertyGuru · HDB near Bishan","url":"https://www.propertyguru.com.sg/property-for-rent?…","pages":5}'
 ```
 
 More on custom searches and what to do when a portal changes its URLs:

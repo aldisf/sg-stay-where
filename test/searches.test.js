@@ -38,9 +38,9 @@ const N99_BROWSER = "https://www.99.co/singapore/rent?main_category=all&name=Sin
 test("the 99.co search matches what 99.co's own filters produce", () => {
   const [, n99] = searchesFromTemplate({ ...filters, maxPrice: 3600 });
   assert.equal(n99.url, N99_BROWSER);
-  // No district filter on 99.co: the extractor applies them within the same two-page limit.
+  // No district filter on 99.co: the extractor applies them within the same page limit.
   assert.deepEqual(n99.districts, filters.districts);
-  assert.equal(n99.pages, 2);
+  assert.equal(n99.pages, 5);
 });
 
 test("postal codes map to districts", () => {

@@ -168,8 +168,8 @@ Step-by-step guides in `skills/`, for any agent:
   `GET /api/queue/maps` (docs/polling.md).
 - **Listing data comes from the user's browser** (`browser/*.js` extractors handed
   over through `/import#<json>`); listing sites block server fetches. Be gentle:
-  2 result pages per search per poll by default (the user can set 1–5), more
-  only while the import answers `readNext` (up to 5), at most
+  5 result pages per search per poll by default (the user can set 1–5; below 5,
+  more only while the import answers `readNext`), at most
   `poll.listings` listing pages per poll (default 40), and a
   `POST /api/poll/permit` grant before each listing-site page load (`poll.rpm`,
   default 10 a minute per site, varied pauses). Deeper only as a one-off backfill
@@ -218,7 +218,7 @@ Step-by-step guides in `skills/`, for any agent:
   "filters": { "hideColiving": true },
   "poll": { "listings": 40, "rpm": 10 }, // listing pages per poll (1–150), page loads a minute per site (1–12); result pages are per search (1–5)
   "searches": [ { "id": "pg-central", "title": "PropertyGuru · central", "site": "propertyguru",
-                  "url": "https://www.propertyguru.com.sg/property-for-rent?…", "pages": 2, "active": true } ],
+                  "url": "https://www.propertyguru.com.sg/property-for-rent?…", "pages": 5, "active": true } ],
   "skip": { "agents": [], "titlePatterns": ["short[- ]term", "room rental"] },
   "message": { "name": "…", "household": "…", "residency": "…", "lifestyle": ["…"],
                "moveIn": "…", "lease": "…", "closing": "…", "template": null }

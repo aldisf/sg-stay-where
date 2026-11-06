@@ -36,9 +36,9 @@ test("buying searches come from links the agent built on each site, newest first
   assert.throws(() => applyTemplate(buy, "main", { filters }), /by link/);
   const next = applySearchLinks(buy, "main", { searches: [{ url: PG_SALE }, { url: N99_SALE, title: "99.co · HDB 4-room+" }, { url: CX_SALE }] });
   assert.deepEqual(next.searches.map((s) => [s.id, s.site, s.template, s.active, s.pages]), [
-    ["main-propertyguru", "propertyguru", "main", true, 2],
-    ["main-99co", "99co", "main", true, 2],
-    ["main-carousell", "carousell", "main", true, 2]
+    ["main-propertyguru", "propertyguru", "main", true, 5],
+    ["main-99co", "99co", "main", true, 5],
+    ["main-carousell", "carousell", "main", true, 5]
   ]);
   assert.match(next.searches[0].url, /sort=date&order=desc/);
   assert.match(next.searches[1].url, /sort_field=recency&sort_order=desc/);

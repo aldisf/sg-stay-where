@@ -43,7 +43,7 @@ test('how much a poll reads is the user\'s setting, within limits', async t => {
   const filters = { minPrice: 2000, maxPrice: 3000, bedrooms: [1], wholeUnit: true, districts: [] };
 
   const { pollLimits } = (await call('GET', '/api/state?project=home')).body;
-  assert.deepEqual(pollLimits, { pages: { default: 2, max: 5 }, listings: { default: 40, max: 150 }, rpm: { default: 10, max: 12 } });
+  assert.deepEqual(pollLimits, { pages: { default: 5, max: 5 }, listings: { default: 40, max: 150 }, rpm: { default: 10, max: 12 } });
 
   assert.equal((await call('PUT', '/api/projects/home/templates/main', { filters, pages: 5 })).body.searches[0].pages, 5);
   assert.equal((await call('PUT', '/api/projects/home/templates/main', { filters, pages: 6 })).status, 400);

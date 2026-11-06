@@ -46,7 +46,7 @@ shows. This also works when a site renames its parameters.
    (`r.listings.length > 0`), prices inside the range, and types that match. If
    not, adjust the filters and check again.
 5. **Save it.**
-   - **One search:** `node src/cli.js api POST /api/projects/<id>/searches '{"title":"PropertyGuru · 4-room HDB, east","url":"<address bar>","pages":2}'`
+   - **One search:** `node src/cli.js api POST /api/projects/<id>/searches '{"title":"PropertyGuru · 4-room HDB, east","url":"<address bar>","pages":5}'`
    - **A set that replaces earlier ones** (one per site, keeping each one's
      on/off switch): send them in a sourcing plan as `searches`
      (docs/sourcing.md):

@@ -39,7 +39,7 @@ flowchart LR
    time at 08:30 on a weekday, the walk to the nearest MRT exit, the closest
    hawker centre. The same answers through the Directions and Places APIs need
    an API key and billing, and they differ from what you'd see yourself.
-3. **Same load as you browsing.** One tab on the listing sites, two result pages per search per poll by default,
+3. **Same load as you browsing.** One tab on the listing sites, five result pages per search per poll by default,
    no proxies, no parallel crawling, no captcha solving. A challenge page clears
    by itself or the search is skipped.
 4. **The data stays with you.** Pages are read in your browser. Results reach
