@@ -69,7 +69,8 @@ test("Maps-only runs do not reset repeated blocks; recovery does, and abandoned 
 
 test("the real runner persists failures and escalates the second fully blocked sites run", async t => {
   const dir = mkdtempSync(path.join(tmpdir(), "ssw-runs-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  let runs;
+  t.after(() => { runs?.close(); rmSync(dir, { recursive: true, force: true }); });
   const projects = new ProjectFiles(path.join(dir, "projects"));
   const project = newProject({ title: "Home" });
   project.searches = searches.map(s => ({ id: s.id, title: s.title, site: s.id === "pg" ? "propertyguru" : "99co", active: true, pages: 5, url: s.id === "pg" ? "https://www.propertyguru.com.sg/property-for-rent" : "https://www.99.co/singapore/rent" }));
@@ -88,8 +89,7 @@ runs.close();`);
   assert.equal(await poll(options), BLOCKED_EXIT);
   assert.match(notifications[1][0], /blocked again/);
   assert.match(notifications[1][1], /Chrome extension/);
-  const runs = new PollRuns(path.join(dir, "sg-stay-where.sqlite"));
-  t.after(() => runs.close());
+  runs = new PollRuns(path.join(dir, "sg-stay-where.sqlite"));
   assert.equal(runs.recent("sites").length, 2);
   rmSync(path.join(dir, "poll.last"));
   writeFileSync(agent, "process.stdin.resume(); process.exitCode = 7;");
