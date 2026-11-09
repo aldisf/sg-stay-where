@@ -105,6 +105,7 @@ export class PropertyWhatsApp extends EventEmitter {
     this.lastHistoryAt = 0;
     this.reconnectAttempts = 0;
     this.stopped = true;
+    this.connectionVersion = 0;
   }
 
   linked() {
@@ -121,41 +122,59 @@ export class PropertyWhatsApp extends EventEmitter {
     };
   }
 
-  // The connection's states and where each may go (WA_STATES). A library event
-  // that doesn't fit is logged and still applied: the header shows what is.
   #setState(next) {
-    if (next !== this.state && !WA_STATES[this.state]?.includes(next)) this.log("warn", `WhatsApp ${this.state} → ${next}: unexpected`);
+    if (next !== this.state && !WA_STATES[this.state]?.includes(next)) {
+      this.log("warn", `WhatsApp ${this.state} → ${next}: ignored`);
+      return false;
+    }
     this.state = next;
+    return true;
   }
 
   async start() {
+    if (!this.stopped) return;
+    this.connectionVersion++;
     mkdirSync(this.authDir, { recursive: true, mode: 0o700 });
     this.stopped = false;
-    await this.#connect();
+    try { await this.#connect(); } catch (error) {
+      this.stopped = true;
+      this.#setState(this.linked() ? "stopped" : "unlinked");
+      throw error;
+    }
   }
 
   async stop() {
     this.stopped = true;
+    this.connectionVersion++;
     clearTimeout(this.reconnectTimer);
-    this.sock?.end(undefined);
+    const sock = this.sock;
+    this.sock = null;
+    sock?.end(undefined);
     this.pending.clear();
     this.#setState(this.linked() ? "stopped" : "unlinked");
   }
 
   async logout() {
     this.stopped = true;
-    try { await this.sock?.logout(); } catch { /* already gone */ }
+    this.connectionVersion++;
+    clearTimeout(this.reconnectTimer);
+    const sock = this.sock;
+    this.sock = null;
+    try { await sock?.logout(); } catch { /* already gone */ }
     rmSync(this.authDir, { recursive: true, force: true });
     this.pending.clear();
     this.#setState("unlinked");
   }
 
   async #connect() {
+    if (this.stopped) return;
+    const attempt = this.connectionVersion;
     const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
     // The version pinned in a Baileys release lags WhatsApp Web; ask for the live one.
     const { version } = await fetchLatestWaWebVersion()
       .catch(() => fetchLatestBaileysVersion())
       .catch(() => ({ version: undefined }));
+    if (this.stopped || attempt !== this.connectionVersion) return;
     const sock = makeWASocket({
       auth: state,
       version,
@@ -174,9 +193,13 @@ export class PropertyWhatsApp extends EventEmitter {
 
   // Tests attach a fake socket here.
   attach(sock) {
+    this.stopped = false;
     this.sock = sock;
+    if (!["unlinked", "stopped", "connecting", "reconnecting"].includes(this.state)) this.#setState("reconnecting");
     this.#setState("connecting");
-    sock.ev.on("connection.update", (update) => this.#onConnection(update));
+    sock.ev.on("connection.update", (update) => {
+      if (this.sock === sock && !this.stopped) this.#onConnection(update, sock).catch(e => this.log("error", e.message));
+    });
     sock.ev.on("messaging-history.set", ({ messages = [], lidPnMappings = [], contacts = [] }) => {
       this.lastHistoryAt = Date.now();
       this.#learnLids(lidPnMappings.map((m) => [m.lid, m.pn]));
@@ -195,22 +218,26 @@ export class PropertyWhatsApp extends EventEmitter {
     this.purgeTimer.unref?.();
   }
 
-  async #onConnection({ connection, lastDisconnect, qr }) {
+  async #onConnection({ connection, lastDisconnect, qr }, sock) {
     if (qr) {
-      this.qr = await QRCode.toDataURL(qr, { width: 360, margin: 2 });
-      this.#setState("qr");
+      const image = await QRCode.toDataURL(qr, { width: 360, margin: 2 });
+      if (this.sock !== sock || this.stopped || !this.#setState("qr")) return;
+      this.qr = image;
       this.emit("qr", qr);
     }
     if (connection === "open") {
-      this.selfJid = jidNormalizedUser(this.sock.user?.id);
+      if (!this.#setState("live")) return;
+      this.selfJid = jidNormalizedUser(sock.user?.id);
       this.selfLid = this.sock.user?.lid ? jidNormalizedUser(this.sock.user.lid) : null;
       this.reconnectAttempts = 0;
       this.qr = null;
-      this.#setState("live");
       this.log("info", `WhatsApp connected as +${phoneFromJid(this.selfJid)}`);
       this.emit("changed", []);
     }
     if (connection === "close") {
+      this.sock = null;
+      clearTimeout(this.reconnectTimer);
+      this.connectionVersion++;
       const code = lastDisconnect?.error?.output?.statusCode;
       if (code === DisconnectReason.loggedOut) {
         rmSync(this.authDir, { recursive: true, force: true });

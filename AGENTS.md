@@ -249,6 +249,9 @@ Step-by-step guides in `skills/`, for any agent:
 - `npm run poll`: one unattended poll now with `SSW_AGENT` (default `claude`): a
   listing-site agent and a Google Maps agent side by side. `npm run poll -- maps`
   runs only the Maps agent (a backlog; no 20-minute gap).
+  Each job records its outcome in `poll_runs`; fully blocked sites runs exit 4, and two
+  consecutive blocks notify with the reason. A missing report or agent failure is shown
+  as Last poll failed.
   Only Claude's tool allowlist confines a poll to `node src/cli.js api|attach`; the
   other agents have a full shell (docs/polling.md "Scheduling").
 - `npm start`: server on http://127.0.0.1:7431 (`SSW_PORT`, `SSW_DATA_DIR` override).
@@ -287,7 +290,7 @@ Step-by-step guides in `skills/`, for any agent:
   `map.js` pins, Detailed map, theme; `deck.js` Review deck, decide, `#contact` dialog;
   `list.js` Watching rows; `detail.js` sheet, Latest block, notes, lightbox, history;
   `enquiries.js`; `settings.js` header, project menu, Searches and Project tabs.
-- `src/poll.js` poll runner. `scripts/` the poll's two prompts, service installers. `docs/` how-tos.
+- `src/poll.js` poll runner. `src/poll-runs.js` durable job outcomes, search coverage and lock ownership. `scripts/` the poll's two prompts, service installers. `docs/` how-tos.
 
 ## Hosted apps (Folio)
 

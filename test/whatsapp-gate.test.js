@@ -313,3 +313,28 @@ test("a friend's Carousell link never opens the gate; a tracked Carousell listin
   await env.live(message(agent, "c2", "AGENT-yes available", { ts: T0 + 20, pushName: "Agent Kannan" }));
   assertStored(env, [intro, "AGENT-yes available"]);
 });
+
+
+test("connection events from a replaced socket or after stop cannot revive it", async (t) => {
+  const env = setup(t);
+  const old = env.wa.sock;
+  const ev = new EventEmitter();
+  env.wa.attach({ ev, user: { id: SELF }, end() {} });
+  old.ev.emit("connection.update", { connection: "open" });
+  assert.equal(env.wa.status().state, "connecting");
+  ev.emit("connection.update", { connection: "open" });
+  assert.equal(env.wa.status().state, "live");
+  await env.wa.stop();
+  ev.emit("connection.update", { connection: "open" });
+  assert.equal(env.wa.status().state, "unlinked");
+});
+
+test("duplicate close events schedule one reconnect", async t => {
+  const env = setup(t);
+  await env.emit("connection.update", { connection: "close", lastDisconnect: { error: { output: { statusCode: 500 } } } });
+  const timer = env.wa.reconnectTimer;
+  assert.ok(timer);
+  await env.emit("connection.update", { connection: "close", lastDisconnect: { error: { output: { statusCode: 500 } } } });
+  assert.equal(env.wa.reconnectTimer, timer);
+  assert.equal(env.wa.status().state, "reconnecting");
+});

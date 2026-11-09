@@ -144,7 +144,7 @@ current searches; do not invent a location, budget or household fact.
    usually clears by itself, and checks come and go: wait 10 s and check again,
    up to 30 s. Never click it.
    1. Still there, or asking you to tick a box: record the skip with
-      `POST /api/polls {"search": "<search title>", "note": "skipped: Cloudflare check"}`
+      `POST /api/polls {"search": "<search title>", "project": "<project id>", "note": "skipped: Cloudflare check"}`
       and go on to the next search.
    2. Leave that portal for the rest of this run, including its queued details.
       Try it again at the next scheduled scan. Continue other portals and Maps.
@@ -371,7 +371,9 @@ Setting up, checking or removing the job: [skills/schedule-polls](../skills/sche
 Without a job, the app's Poll now button (header) runs the same poll in the
 background; the header shows the last poll, "Polls stalled" when a job
 exists but nothing ran for 4 hours, and "Searches blocked" when the last poll
-skipped every active search (its tooltip gives each reason).
+skipped every active search (its tooltip gives each reason). "Last poll failed"
+means the agent failed to start, exited with an error, stopped without an outcome,
+or finished without reporting every expected search. The next run can recover it.
 
 When the computer sleeps:
 
@@ -399,7 +401,28 @@ twice: with `scripts/poll-prompt.md` for the listing sites and with
 4. `npm run poll -- maps` runs only the Maps agent, for example to work through
    a backlog; it doesn't wait for the 20-minute gap, which only protects the
    listing sites. `npm run poll -- sites` runs only the other one.
-5. One listing's Maps checks took about 4 minutes in a test with Claude Code, so
+5. `poll_runs` in the SQLite database records each sites/Maps job's agent, owner
+   PID, start, finish, log, agent exit code and outcome. A sites run snapshots its
+   searches by project and ID. `poll_run_searches` records whether each search
+   was read or explicitly skipped; an empty result is still a successful read.
+   Maps-only jobs and starts skipped by a lock or cooldown do not affect the
+   consecutive blocked-sites count. Earlier search rows remain visible, but
+   cannot make an unreported search in a new run look successful.
+6. A run moves from `starting` to `running` when the child starts, then to `ok`,
+   `blocked`, `failed` or `interrupted`. Terminal outcomes cannot be rewritten.
+   An agent crash fails even if some searches were read. A zero-exit sites agent
+   with missing reports also fails. Every search explicitly skipped returns
+   exit code 4; two consecutive blocked sites runs trigger a desktop notification
+   with the saved reasons. A sites run with some reads and the remaining searches
+   skipped succeeds. Poll now's 20-minute cooldown starts only after the agent
+   executable launches. macOS still has no hard deadline for a hung child.
+7. Browser imports labelled with `poll` attach to the unique active sites run
+   matching their project and search title. CLI calls inherit the run ID; browser
+   payloads may supply `runId` too. Always include `project`, including skipped
+   reports to `/api/polls`, so identical search titles in two projects cannot mix.
+   Results with an explicit finished or mismatched run ID are refused before
+   changing listings. Standalone imports without a run remain supported.
+8. One listing's Maps checks took about 4 minutes in a test with Claude Code, so
    a run checks about 25 before its 100 minutes are up. A backlog (after the
    first poll) drains over the next polls, or sooner with `npm run poll -- maps`
    in between.

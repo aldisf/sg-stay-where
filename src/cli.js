@@ -168,7 +168,7 @@ async function api() {
   // x-ssw-actor lets the server refuse to make the user's choices (watch, hide).
   const res = await fetch(`http://127.0.0.1:${PORT}${route}`, {
     method,
-    headers: { "x-ssw-actor": "poll", ...(json ? { "content-type": "application/json" } : {}) },
+    headers: { "x-ssw-actor": "poll", ...(process.env.SSW_POLL_RUN_ID ? { "x-ssw-poll-run": process.env.SSW_POLL_RUN_ID } : {}), ...(json ? { "content-type": "application/json" } : {}) },
     body: json
   });
   process.stdout.write(`${await res.text()}\n`);

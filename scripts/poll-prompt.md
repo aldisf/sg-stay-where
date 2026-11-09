@@ -50,7 +50,7 @@ Read docs/polling.md first and follow it exactly. For this unattended run:
 - A Cloudflare "Just a moment" / "Performing security verification" page usually clears
   by itself: wait 10 s and check again, up to 30 s, never click it. If it stays, or any
   page needs a human (login, a box to tick, a captcha), record it with
-  `node src/cli.js api POST /api/polls '{"search":"<search title>","note":"skipped: Cloudflare check"}'`
+  `node src/cli.js api POST /api/polls '{"search":"<search title>","project":"<project id>","note":"skipped: Cloudflare check"}'`
   and go on. Exclude that portal's details for the remainder of the run. Do not
   retry a challenge during this run; try again on the next scheduled scan.
   Never try to get past it.

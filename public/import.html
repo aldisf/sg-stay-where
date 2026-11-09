@@ -28,7 +28,7 @@
       const res = await fetch("/api/import", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ listings: payload.listings, found_by: payload.found_by ?? "bookmarklet", poll: payload.poll ?? null, project: payload.project ?? null })
+        body: JSON.stringify({ listings: payload.listings, found_by: payload.found_by ?? "bookmarklet", poll: payload.poll ?? null, project: payload.project ?? null, runId: payload.runId ?? null })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);

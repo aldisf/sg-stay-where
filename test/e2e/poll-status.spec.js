@@ -30,3 +30,22 @@ for (const scenario of ['all blocked', 'partly blocked', 'no matches']) test(`po
     await expect(button).not.toContainText('skipped');
   }
 });
+
+test.describe('recorded poll failure', () => {
+  test.use({ seedData: async ({}, use) => { await use(async dir => {
+    const { PollRuns } = await import('../../src/poll-runs.js');
+    const runs = new PollRuns(`${dir}/sg-stay-where.sqlite`);
+    const id = runs.start({ job: 'sites', agent: 'fake' });
+    runs.finish(id, { code: 7, reason: 'Agent exited before reporting any searches' });
+    runs.close();
+  }); } });
+
+  test('the header shows a real failed run and lets the user retry', async ({ page }) => {
+    await page.goto('/#/review');
+    const button = page.locator('#poll-now');
+    await expect(button).toContainText('Last poll failed');
+    await expect(button).toBeEnabled();
+    await expect(button).toHaveClass(/stalled/);
+    await expect(button).toHaveAttribute('title', /Agent exited before reporting any searches/);
+  });
+});

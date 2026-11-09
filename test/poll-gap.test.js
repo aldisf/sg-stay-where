@@ -105,6 +105,7 @@ test("a missing agent CLI is reported in the error log, not thrown", async (t) =
   const dir = tempDir(t);
   const code = await poll({ root, env: { ...process.env, SSW_DATA_DIR: dir, SSW_AGENT: "gone" }, agents: { gone: ["ssw-no-such-agent-cli"] }, only: "sites", out: () => {} });
   assert.notEqual(code, 0);
+  assert.equal(existsSync(path.join(dir, "poll.last")), false, "a failed launch must not impose a cooldown");
   const err = readdirSync(path.join(dir, "poll-logs")).find((f) => f.endsWith(".err.log"));
   assert.ok(err, "an error log is kept");
 });
@@ -113,4 +114,14 @@ test("Windows command lines quote arguments cmd.exe would split or expand", () =
   assert.equal(cmdQuote("-p"), "-p");
   assert.equal(cmdQuote("Bash(node src/cli.js api:*)"), '"Bash(node src/cli.js api:*)"');
   assert.equal(cmdQuote('a "b"'), '"a ""b"""');
+});
+
+
+test("an old runner cannot remove a replacement lock", async (t) => {
+  const dir = tempDir(t);
+  const agent = path.join(dir, "replace-lock.mjs");
+  writeFileSync(agent, `import { writeFileSync } from "node:fs"; process.stdin.resume();
+writeFileSync(process.env.SSW_DATA_DIR + "/poll.lock", "999999");`);
+  await poll({ root, env: { ...process.env, SSW_DATA_DIR: dir, SSW_AGENT: "fake" }, agents: { fake: [process.execPath, agent] }, only: "sites", out: () => {} });
+  assert.equal(readFileSync(path.join(dir, "poll.lock"), "utf8"), "999999");
 });

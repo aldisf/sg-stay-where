@@ -199,6 +199,7 @@ export function renderProject() {
 const POLL_TEXT = {
   running: () => "Polling…",
   blocked: (last) => `Searches blocked${last ? ` · ${last}` : ""}`,
+  failed: (last) => `Last poll failed${last ? ` · ${last}` : ""}`,
   stalled: (last) => `Polls stalled${last ? ` · ${last}` : ""}`,
   ok: (last, skipped) => `Polled ${last}${skipped.length ? ` · ${skipped.length} skipped` : ""}`,
   never: () => "Poll now"
@@ -210,8 +211,8 @@ function renderPollButton() {
   const button = $("#poll-now");
   setHTML(button, `${icon("refresh-cw")}<span>${esc(POLL_TEXT[health](last, skipped))}</span>`);
   button.disabled = health === "running";
-  button.classList.toggle("stalled", health === "stalled" || health === "blocked");
-  button.title = health === "running" ? "A poll is running" : `${health === "stalled" ? "No poll since the schedule expected one. " : ""}${skipped.map(s => `${s.search}: ${s.note}. `).join("")}Poll now`;
+  button.classList.toggle("stalled", ["stalled", "blocked", "failed"].includes(health));
+  button.title = health === "running" ? "A poll is running" : `${health === "failed" ? `${state.poll.reason ?? "Poll did not finish"}. ` : ""}${health === "stalled" ? "No poll since the schedule expected one. " : ""}${skipped.map(s => `${s.search}: ${s.note}. `).join("")}Poll now`;
   button.setAttribute("aria-label", button.title);
 }
 

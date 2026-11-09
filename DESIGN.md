@@ -148,6 +148,8 @@ Radius 14px (cards), 9px (inputs), pills 999px. Shadows only for floating things
   the header's "N to review" count what the deck will show with the current search
   and filters. Empty states distinguish a filtered result (with how many are
   waiting behind the filters) from an empty watch list or unfinished checks.
+- **Poll status**: failed runs use the existing amber poll button treatment. Show
+  "Last poll failed", keep retry available, and put the reason in its tooltip.
 - **Connection status**: failed refreshes keep loaded listings visible and offer
   Retry. A failed initial load preserves the app shell.
 

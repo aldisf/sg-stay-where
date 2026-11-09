@@ -27,7 +27,8 @@ import { checkProject, CRITERION_TYPES, criteriaOf, DEALS, mapCriteriaKey, messa
 import { isColiving, scoreListing } from "./score.js";
 import { applyTemplate, DISTRICTS, filtersFromPropertyGuru, newestFirst, POLL_LIMITS } from "./searches.js";
 import { canHashOnServer, photoQueue, photoUrls } from "./photos.js";
-import { JOBS, lockHolder, markPollStart, POLL_GAP_MIN, sitesGap } from "./poll.js";
+import { JOBS, lockHolder, POLL_GAP_MIN, sitesGap } from "./poll.js";
+import { PollRuns } from "./poll-runs.js";
 import { PortalPacer } from "./poll-policy.js";
 
 import { overrideSearchBrief, projectVersion, requestSearchBrief, resolveSearchBrief } from "./search-brief.js";
@@ -69,26 +70,32 @@ const POLL_JOBS = [
 
 export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = [process.execPath, "--no-warnings=ExperimentalWarning", path.join(root, "src/cli.js"), "poll"], pollJobs = POLL_JOBS }) {
   let pollChild = null;
+  const runs = new PollRuns(store.db);
   // Each poll job holds a lock with its pid (src/poll.js), so a scheduled poll counts too.
   const jobRunning = (job) => lockHolder(path.join(dataDir, JOBS[job].lock)) !== 0;
   const pollRunning = () => !!pollChild || Object.keys(JOBS).some(jobRunning);
   const pollScheduled = () => pollJobs.some((f) => existsSync(f));
 
-  // The poll's state for the header. health: "running", "blocked" (the last run
-  // skipped every active search), "stalled" (a job exists but nothing ran for 4
-  // hours), "ok", or "never".
   function pollStatus(p) {
-    const lastAt = store.recentPolls(1)[0]?.at ?? null;
+    runs.reconcile();
+    const latest = runs.recent("sites", 1)[0] ?? null;
+    const latestMaps = runs.recent("maps", 1)[0] ?? null;
+    const failure = [latest, latestMaps].filter(r => r && ["failed", "interrupted"].includes(r.state))
+      .find(r => !latest || r.started_at >= latest.started_at || r.id === latest.id);
+    const lastAt = latest?.finished_at ?? latest?.started_at ?? store.recentPolls(1)[0]?.at ?? null;
     const running = pollRunning();
     const scheduled = pollScheduled();
     const last = store.lastPollBySearch();
-    const active = (p.searches ?? []).filter((s) => s.active !== false);
-    const skipped = active.filter((s) => last[s.title]?.note).map((s) => ({ search: s.title, note: last[s.title].note, at: last[s.title].at }));
+    const active = (p.searches ?? []).filter(s => s.active !== false);
+    const skipped = latest
+      ? latest.searches.filter(s => s.project_id === p.id && s.outcome === "skipped").map(s => ({ search: s.title, note: s.note, at: latest.finished_at }))
+      : active.filter(s => /^skipped\s*:/i.test(last[s.title]?.note ?? "")).map(s => ({ search: s.title, note: last[s.title].note, at: last[s.title].at }));
     const health = running ? "running"
-      : active.length && skipped.length === active.length ? "blocked"
-        : scheduled && (!lastAt || Date.now() - Date.parse(lastAt) > POLL_STALLED_MS) ? "stalled"
-          : lastAt ? "ok" : "never";
-    return { lastAt, running, scheduled, health, skipped };
+      : scheduled && (!lastAt || Date.now() - Date.parse(lastAt) > POLL_STALLED_MS) ? "stalled"
+        : failure ? "failed"
+          : latest?.state === "blocked" || (!latest && active.length && skipped.length === active.length) ? "blocked"
+            : lastAt ? "ok" : "never";
+    return { lastAt, running, scheduled, health, skipped, lastRun: latest, reason: failure?.reason ?? latest?.reason ?? null };
   }
   // data/server.json: { "remoteHosts": ["<node>.ts.net:8431"], "allowedLogins": ["you@example.com"] }
   const access = readJson(path.join(dataDir, "server.json"), {});
@@ -502,12 +509,20 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       if (!input || typeof input !== "object" || Array.isArray(input)) throw new HttpError(400, "Send an object with a listings array.");
       if ("enrichment" in input) throw new HttpError(400, "Save Maps checks with PUT /api/listings/<id>/enrichment, using the enrichment object as the body. /api/import only accepts listings.");
       if (!Array.isArray(input.listings)) throw new HttpError(400, "Send a listings array (empty is allowed for a search with no matches).");
-      const results = importListings(input.listings, input.found_by ?? "import", input.project);
-      if (input.poll) store.recordPoll({ search: input.poll, seen: results.length, added: results.filter((r) => r.created).length, note: input.note ?? null });
-      // Result pages are newest first: an oldest card never seen before means the
-      // page stopped short of the last poll's listings, so the gap continues on the next page.
-      const readNext = !!input.poll && !!results.at(-1)?.created;
-      return { imported: results.length, created: results.filter((r) => r.created).length, readNext, results };
+      store.db.exec("BEGIN IMMEDIATE");
+      try {
+        if (input.poll) runs.match({ search: input.poll, projectId: project(input.project).id, runId: req.headers["x-ssw-poll-run"] ?? input.runId ?? null });
+        const results = importListings(input.listings, input.found_by ?? "import", input.project);
+        if (input.poll) {
+          runs.record({ search: input.poll, projectId: project(input.project).id, note: input.note ?? null, runId: req.headers["x-ssw-poll-run"] ?? input.runId ?? null });
+          store.recordPoll({ search: input.poll, seen: results.length, added: results.filter((r) => r.created).length, note: input.note ?? null });
+        }
+        // Result pages are newest first: an oldest card never seen before means the
+        // page stopped short of the last poll's listings, so the gap continues on the next page.
+        const readNext = !!input.poll && !!results.at(-1)?.created;
+        store.db.exec("COMMIT");
+        return { imported: results.length, created: results.filter((r) => r.created).length, readNext, results };
+      } catch (error) { store.db.exec("ROLLBACK"); throw error; }
     }],
 
     // "Not interested" (status → rejected) also hides the flat's repeats;
@@ -644,8 +659,9 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
 
     // A search a poll could not read (a Cloudflare check), so the next run retries it first.
     ["POST", /^\/api\/polls$/, async (req) => {
-      const { search, note } = await body(req);
+      const { search, note, project: projectId, runId } = await body(req);
       if (typeof search !== "string" || !search.trim() || typeof note !== "string" || !note.trim() || note.length > 200) throw new HttpError(400, "Give the search title and a short note.");
+      runs.record({ search: search.trim(), note: note.trim(), projectId: projectId ?? null, runId: req.headers["x-ssw-poll-run"] ?? runId ?? null });
       store.recordPoll({ search: search.trim(), seen: 0, added: 0, note: note.trim() });
       return { ok: true };
     }],
@@ -653,9 +669,8 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       if (pollChild || jobRunning("sites")) throw new HttpError(409, "A poll is already running.");
       const gap = sitesGap(dataDir);
       if (!gap.open) throw new HttpError(409, `The last poll started ${gap.minutes} min ago. Polls start at least ${POLL_GAP_MIN} minutes apart, so the sites don't see a burst.`);
-      markPollStart(dataDir);
       const [cmd, ...args] = pollCommand;
-      pollChild = spawn(cmd, args, { cwd: root, env: { ...process.env, SSW_DATA_DIR: dataDir, SSW_PORT: String(server.address().port), SSW_POLL_GAP_CHECKED: "1" }, detached: true, stdio: "ignore", windowsHide: true });
+      pollChild = spawn(cmd, args, { cwd: root, env: { ...process.env, SSW_DATA_DIR: dataDir, SSW_PORT: String(server.address().port) }, detached: true, stdio: "ignore", windowsHide: true });
       pollChild.on("exit", () => { pollChild = null; });
       pollChild.on("error", (error) => { log("warn", `poll did not start: ${error.message}`); pollChild = null; });
       pollChild.unref();

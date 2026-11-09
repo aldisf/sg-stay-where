@@ -15,6 +15,7 @@ test("Poll now starts one background poll and the state shows it and the last po
   const script = path.join(dataDir, "fake-poll.mjs");
   await writeFile(script, `import { writeFileSync } from "node:fs";
 writeFileSync(process.env.SSW_DATA_DIR + "/ran.json", JSON.stringify({ port: process.env.SSW_PORT, dir: process.env.SSW_DATA_DIR }));
+writeFileSync(process.env.SSW_DATA_DIR + "/poll.last", String(Math.floor(Date.now() / 1000)));
 setTimeout(() => {}, 400);`);
   const store = new Store(":memory:");
   const projects = new ProjectFiles(path.join(dataDir, "projects"));
@@ -77,4 +78,36 @@ test("the poll's health is blocked when the last run skipped every active search
   poll = (await call("GET", "/api/state")).body.poll;
   assert.equal(poll.health, "ok");
   assert.deepEqual(poll.skipped.map((s) => s.search), ["99 · test"]);
+});
+
+test("browser imports and CLI skips belong to one run; a later failure cannot borrow earlier search success", async t => {
+  const { PollRuns } = await import("../src/poll-runs.js");
+  const dataDir = await mkdtemp(path.join(tmpdir(), "ssw-run-api-"));
+  const store = new Store(":memory:");
+  const runs = new PollRuns(store.db);
+  const projects = new ProjectFiles(path.join(dataDir, "projects"));
+  projects.save(newProject({ title: "Home" }));
+  const server = await startServer({ root: fileURLToPath(new URL("../", import.meta.url)), dataDir, store, projects, log: () => {}, pollJobs: [] });
+  t.after(async () => { server.closeAllConnections(); await new Promise(r => server.close(r)); store.close(); await rm(dataDir, { recursive: true, force: true }); });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const call = async (method, route, body, headers = {}) => {
+    const res = await fetch(origin + route, { method, headers: { "content-type": "application/json", origin, ...headers }, body: body ? JSON.stringify(body) : undefined });
+    return { status: res.status, body: await res.json() };
+  };
+  const searches = [{ projectId: "home", id: "pg", title: "PG" }, { projectId: "home", id: "99", title: "99" }];
+  let id = runs.start({ job: "sites", agent: "fake", searches });
+  assert.equal((await call("POST", "/api/import", { project: "home", listings: [], poll: "PG" })).status, 200);
+  assert.equal((await call("POST", "/api/polls", { search: "99", project: "home", note: "skipped: browser unavailable" }, { "x-ssw-poll-run": id })).status, 200);
+  assert.equal(runs.finish(id, { code: 0 }).state, "ok");
+  assert.equal((await call("GET", "/api/state")).body.poll.health, "ok");
+  id = runs.start({ job: "sites", agent: "fake", searches });
+  runs.finish(id, { code: 7 });
+  const poll = (await call("GET", "/api/state")).body.poll;
+  assert.equal(poll.health, "failed");
+  assert.equal(poll.lastRun.exit_code, 7);
+  assert.match(poll.reason, /Agent exited 7/);
+  assert.deepEqual(poll.skipped, [], "previous run's skip must not leak into this one");
+  assert.equal((await call("POST", "/api/polls", { search: "99", note: "skipped: browser unavailable" }, { "x-ssw-poll-run": id })).status, 409);
+  assert.equal((await call("POST", "/api/import", { project: "home", poll: "PG", listings: [{ url: "https://www.propertyguru.com.sg/listing/for-rent-example-999991234", source: "propertyguru", source_id: "999991234" }] }, { "x-ssw-poll-run": id })).status, 409);
+  assert.equal(store.listListings().length, 0, "a refused stale worker must not mutate listings");
 });
