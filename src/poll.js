@@ -40,6 +40,9 @@ export const JOBS = {
 // that way, so its maps agent starts after the sites agent ends.
 const SIDE_BY_SIDE = new Set(["claude"]);
 
+const headlineOf = (...files) => files.filter(existsSync).map((f) => readFileSync(f, "utf8")).join("\n")
+  .split("\n").map((l) => l.trim()).find((l) => l && !l.startsWith("Warning:"))?.slice(0, 180) ?? null;
+
 export const cmdQuote = (arg) => (/[\s"&|<>^()*%!]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg);
 
 export async function poll({ root, env = process.env, agents = AGENTS, jobs = JOBS, only = null, out = console.log, err = console.error, notifyUser = notify } = {}) {
@@ -103,6 +106,8 @@ export async function poll({ root, env = process.env, agents = AGENTS, jobs = JO
         ({ code, reason } = await spawnAgent(agents[agent], { root, env: { ...env, SSW_POLL_RUN_ID: id }, prompt, log, errLog,
           onStart: () => { ledger.running(id); if (name === "sites") markPollStart(data); } }));
       } catch (error) { reason = error.message; err(`${name}: ${reason}`); }
+      // The agent's own words ("You've hit your 5-hour limit") say more than its exit code.
+      if (code !== 0) reason ??= headlineOf(log, errLog);
       const result = ledger.finish(id, { code, reason });
       activeRuns.delete(id);
       release(name);
@@ -124,9 +129,7 @@ export async function poll({ root, env = process.env, agents = AGENTS, jobs = JO
         notifyUser("sg-stay-where: searches blocked again", sites.result.reason.slice(0, 500));
       } else {
         const { log, errLog, result } = results[0];
-        const text = [log, errLog].filter(existsSync).map(f => readFileSync(f, "utf8")).join("\n");
-        const headline = result.reason ?? text.split("\n").map(l => l.trim()).find(l => l && !l.startsWith("Warning:"))?.slice(0, 180) ?? "";
-        notifyUser(`sg-stay-where poll (${agent})`, headline);
+        notifyUser(`sg-stay-where poll (${agent})`, result.reason ?? headlineOf(log, errLog) ?? "");
       }
       return results.find(r => r.code !== 0)?.code ?? 0;
     } finally {

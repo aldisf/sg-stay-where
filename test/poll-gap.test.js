@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { PollRuns } from "../src/poll-runs.js";
 import { cmdQuote, lockHolder, poll, STALE_LOCK_MIN } from "../src/poll.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
@@ -99,6 +100,22 @@ test("Claude runs the listing-site and Google Maps agents side by side", async (
 test("Codex runs the Google Maps agent after the listing-site agent", async (t) => {
   const { sites, maps } = await twoJobs(t, "codex");
   assert.ok(maps.start >= sites.end);
+});
+
+test("a failed run keeps the agent's own words as its reason and in the notification", async (t) => {
+  const dir = tempDir(t);
+  const prompt = path.join(dir, "prompt.md");
+  writeFileSync(prompt, "go");
+  const agent = path.join(dir, "agent.mjs");
+  writeFileSync(agent, "process.stdin.resume().on('end', () => { console.log(\"You've hit your 5-hour limit\"); process.exit(1); });");
+  const notes = [];
+  const env = { ...process.env, SSW_DATA_DIR: dir, SSW_AGENT: "fake" };
+  const options = { root, env, agents: { fake: [process.execPath, agent] }, jobs: { sites: { prompt, lock: "poll.lock", log: "" } }, out: () => {}, notifyUser: (_, text) => notes.push(text) };
+  assert.equal(await poll(options), 1);
+  const ledger = new PollRuns(path.join(dir, "sg-stay-where.sqlite"));
+  t.after(() => ledger.close());
+  assert.equal(ledger.recent("sites", 1)[0].reason, "You've hit your 5-hour limit");
+  assert.deepEqual(notes, ["You've hit your 5-hour limit"]);
 });
 
 test("a missing agent CLI is reported in the error log, not thrown", async (t) => {
