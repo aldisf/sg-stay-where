@@ -113,8 +113,9 @@ test("a failed run keeps the agent's own words as its reason and in the notifica
   const options = { root, env, agents: { fake: [process.execPath, agent] }, jobs: { sites: { prompt, lock: "poll.lock", log: "" } }, out: () => {}, notifyUser: (_, text) => notes.push(text) };
   assert.equal(await poll(options), 1);
   const ledger = new PollRuns(path.join(dir, "sg-stay-where.sqlite"));
-  t.after(() => ledger.close());
-  assert.equal(ledger.recent("sites", 1)[0].reason, "You've hit your 5-hour limit");
+  const [last] = ledger.recent("sites", 1);
+  ledger.close();
+  assert.equal(last.reason, "You've hit your 5-hour limit");
   assert.deepEqual(notes, ["You've hit your 5-hour limit"]);
 });
 
