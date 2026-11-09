@@ -125,3 +125,27 @@ writeFileSync(process.env.SSW_DATA_DIR + "/poll.lock", "999999");`);
   await poll({ root, env: { ...process.env, SSW_DATA_DIR: dir, SSW_AGENT: "fake" }, agents: { fake: [process.execPath, agent] }, only: "sites", out: () => {} });
   assert.equal(readFileSync(path.join(dir, "poll.lock"), "utf8"), "999999");
 });
+
+test("native agent executables receive shell characters as literal arguments", async t => {
+  const dir = tempDir(t);
+  const agent = path.join(dir, "agent & space.mjs");
+  const args = ['quotes "stay quoted"', '& | < > ^ ( )', '%PATH% !NAME!', 'trailing\\'];
+  writeFileSync(agent, "process.stdin.resume(); console.log(JSON.stringify(process.argv.slice(2)));");
+  const code = await poll({ root, env: { ...process.env, SSW_DATA_DIR: dir, SSW_AGENT: "fake" }, agents: { fake: [process.execPath, agent, ...args] }, only: "sites", out: () => {}, notifyUser: () => {} });
+  assert.equal(code, 0);
+  const log = readdirSync(path.join(dir, "poll-logs")).find(f => f.endsWith(".log") && !f.endsWith(".err.log"));
+  assert.deepEqual(JSON.parse(readFileSync(path.join(dir, "poll-logs", log), "utf8")), args);
+});
+
+test("Windows resolves batch agent shims on PATH and forwards stdin", { skip: process.platform !== "win32" }, async t => {
+  const dir = tempDir(t);
+  const prompt = path.join(dir, "prompt.md"), agent = path.join(dir, "agent.mjs");
+  writeFileSync(prompt, "a prompt\nwith two lines\n");
+  writeFileSync(agent, "let text = ''; process.stdin.on('data', d => text += d).on('end', () => console.log(JSON.stringify({ text, args: process.argv.slice(2) })));");
+  writeFileSync(path.join(dir, "ssw-test-agent.cmd"), `@echo off\r\n"${process.execPath}" "${agent}" %*\r\n`);
+  const code = await poll({ root, env: { ...process.env, PATH: `${dir};${process.env.PATH}`, SSW_DATA_DIR: dir, SSW_AGENT: "fake" }, agents: { fake: ["ssw-test-agent", "argument with spaces"] }, jobs: { sites: { prompt, lock: "poll.lock", log: "" } }, out: () => {}, notifyUser: () => {} });
+  const files = readdirSync(path.join(dir, "poll-logs"));
+  assert.equal(code, 0, files.filter(f => f.endsWith(".err.log")).map(f => readFileSync(path.join(dir, "poll-logs", f), "utf8")).join("\n"));
+  const log = files.find(f => f.endsWith(".log") && !f.endsWith(".err.log"));
+  assert.deepEqual(JSON.parse(readFileSync(path.join(dir, "poll-logs", log), "utf8")), { text: "a prompt\nwith two lines\n", args: ["argument with spaces"] });
+});

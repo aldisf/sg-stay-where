@@ -147,7 +147,16 @@ function spawnAgent([cmd, ...args], { root, env, prompt, log, errLog, onStart })
   // Scheduled jobs start with a bare PATH; these are where the agent CLIs install.
   const extra = win ? [path.join(home, ".local", "bin")] : [path.join(home, ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin"];
   const PATH = [...extra, env.PATH ?? env.Path ?? ""].join(path.delimiter);
-  if (win && spawnSync("where.exe", [cmd], { env: { ...env, PATH }, windowsHide: true, stdio: "ignore" }).status !== 0) {
+  const childEnv = { ...env, PATH };
+  let executable = cmd;
+  if (win) {
+    if (path.win32.dirname(cmd) !== ".") executable = path.resolve(root, cmd);
+    else {
+      const located = spawnSync("where.exe", [cmd], { cwd: root, env: childEnv, windowsHide: true, encoding: "utf8" });
+      executable = located.status === 0 ? located.stdout.trim().split(/\r?\n/)[0] : "";
+    }
+  }
+  if (win && (!executable || !existsSync(executable) || !statSync(executable).isFile())) {
     const reason = `could not start ${cmd}: executable not found on PATH`;
     writeFileSync(errLog, `${reason}\n`);
     return Promise.resolve({ code: 1, reason });
@@ -155,9 +164,11 @@ function spawnAgent([cmd, ...args], { root, env, prompt, log, errLog, onStart })
   const outFd = openSync(log, "w");
   const errFd = openSync(errLog, "w");
   return new Promise((resolve) => {
-    const child = win
-      ? spawn([cmd, ...args].map(cmdQuote).join(" "), { cwd: root, env: { ...env, PATH }, stdio: ["pipe", outFd, errFd], shell: true, windowsHide: true })
-      : spawn(cmd, args, { cwd: root, env: { ...env, PATH }, stdio: ["pipe", outFd, errFd] });
+    const batch = win && /\.(cmd|bat)$/i.test(executable);
+    const options = { cwd: root, env: childEnv, stdio: ["pipe", outFd, errFd], windowsHide: true };
+    const child = batch
+      ? spawn([executable, ...args].map(cmdQuote).join(" "), { ...options, shell: true })
+      : spawn(executable, args, options);
     child.once("spawn", onStart);
     let reason = null;
     child.on("error", (e) => { reason = `could not start ${cmd}: ${e.message}`; writeFileSync(errLog, `${reason}\n`, { flag: "a" }); });
