@@ -1,13 +1,5 @@
 // Message text is untrusted agent input; it is matched, never executed.
-
-// "new" is the review deck (every listing a poll finds starts there);
-// "shortlisted" (Watching) and "rejected" (Not interested) are the user's swipe.
-export const STATUSES = ["new", "shortlisted", "contacted", "replied", "viewing_scheduled", "viewed", "applied", "closed", "rejected", "unavailable"];
-export const FOLLOWED = new Set(["shortlisted", "contacted", "replied", "viewing_scheduled", "viewed", "applied"]);
-
-// Statuses the chat may move a listing out of. Anything from a viewing onwards
-// is the user's call; the chat only shows hints for those.
-const AUTO_RANK = { new: 0, shortlisted: 1, contacted: 2, replied: 3 };
+// What the text says about a lead; what that does to the status is src/lifecycle.js.
 
 const VIEWING_RE = /\b(view(ing)?s?|visit|see the (unit|place|house|flat|apartment)|come (down|by|over)|show you)\b/i;
 const WHEN_RE = /\b(\d{1,2}(:\d{2})?\s?(am|pm)|\d{1,2}[:.]\d{2}|tmr|tomorrow|today|tonight|this (morning|afternoon|evening|weekend)|(mon|tues?|wed(nes)?|thu(rs)?|fri|sat(ur)?|sun)(day)?|\d{1,2}\/\d{1,2}|\d{1,2}(st|nd|rd|th)?\s(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*)\b/i;
@@ -61,32 +53,4 @@ export function leadSignals(messages, now = Date.now() / 1000) {
     } : null,
     unavailable: unavailableMsg ? { ts: unavailableMsg.ts, seq: unavailableMsg.received_seq ?? null, text: excerpt(unavailableMsg.text) } : null
   };
-}
-
-// Conversation progression is immediate. Dispositions require the agent's
-// evidence-bound follow-up operation, including taken units.
-export function advanceStatus(current, signals) {
-  const rank = AUTO_RANK[current];
-  if (rank == null || !signals) return current;
-  if (signals.repliedAt && rank < AUTO_RANK.replied) return "replied";
-  if (signals.contactedAt && rank < AUTO_RANK.contacted) return "contacted";
-  return current;
-}
-
-export function followupStatus(current, outcome) {
-  if (outcome === "none") return current;
-  if (outcome === "unavailable" && (current === "new" || FOLLOWED.has(current))) return "unavailable";
-  if (!FOLLOWED.has(current)) throw new Error("Only followed listings can change from a chat outcome");
-  if (["declined", "ended"].includes(outcome)) return "closed";
-  if (outcome === "viewing_cancelled" && current === "viewing_scheduled") return "replied";
-  if (outcome === "viewing_scheduled" && !["viewed", "applied"].includes(current)) return "viewing_scheduled";
-  if (outcome === "viewed" && current === "viewing_scheduled") return "viewed";
-  throw new Error(`Cannot apply ${outcome} to ${current}`);
-}
-
-// Direct poll PATCH is only for a listing page that is no longer available.
-// Chat outcomes go through Store.recordFollowup with evidence and a snapshot.
-export function pollMaySetStatus(current, next) {
-  if (next === current) return true;
-  return current !== "rejected" && next === "unavailable";
 }

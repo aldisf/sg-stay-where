@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { Store } from "../src/db.js";
 
@@ -98,6 +101,7 @@ test("merging a copy points its link, chats and key at the listing kept", () => 
   s.mergeListing(copy.id, keep.id, "Auto-skipped: same flat as #1");
   const after = s.getListing(copy.id);
   assert.equal(after.status, "rejected");
+  assert.equal(after.hidden_by, "merge");
   assert.equal(after.merged_into, keep.id);
   assert.deepEqual(s.getListing(keep.id).also.map((a) => a.source), ["99co"]);
   assert.equal(s.findListingByKey(copy.listing_key).id, keep.id);
@@ -116,6 +120,7 @@ test("a split puts the copy back as it was and keeps the pair apart", () => {
   s.splitListing(b.id);
   const back = s.getListing(b.id);
   assert.equal(back.status, "shortlisted");
+  assert.equal(back.hidden_by, null);
   assert.equal(back.notes, "nice");
   assert.equal(back.merged_into, null);
   assert.deepEqual(s.getListing(a.id).also, []);
@@ -132,4 +137,26 @@ test("merging a card that has copies moves them to the card kept", () => {
   assert.equal(s.getListing(c.id).merged_into, a.id);
   assert.deepEqual(s.getListing(a.id).also.map((x) => x.id).sort(), [b.id, c.id].sort());
   assert.equal(s.findListingByKey(c.listing_key).id, a.id);
+});
+
+test("who hid a listing is recorded with the hide, and read from old notes once", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "ssw-hidden-by-"));
+  const file = path.join(dir, "store.sqlite");
+  let s = new Store(file);
+  const mk = (n) => s.upsertListing({ source: "propertyguru", source_id: `50000093${n}`, url: `https://www.propertyguru.com.sg/listing/50000093${n}` }).listing;
+  const [a, b, c, d] = [mk(1), mk(2), mk(3), mk(4)];
+  assert.equal(s.updateListing(a.id, { status: "rejected" }).hidden_by, "user");
+  assert.equal(s.updateListing(a.id, { status: "shortlisted" }).hidden_by, null);
+  assert.equal(s.updateListing(b.id, { status: "rejected", notes: "Auto-skipped by poll (room)" }, { by: "skip" }).hidden_by, "skip");
+  assert.throws(() => s.updateListing(c.id, { status: "rejected" }, { by: "poll" }), /cannot hide/);
+  assert.throws(() => s.updateListing(c.id, { status: "rejected" }, { by: "chat" }), /cannot hide/);
+  // Rows from before the column: the note's wording says who hid them.
+  for (const [id, notes] of [[a.id, ""], [b.id, "Auto-skipped by poll (room)"], [c.id, "Auto-hidden: same flat as #1 you marked Not interested."], [d.id, "Hidden with #1 (Rv Edge): same flat from another agent."]]) {
+    s.db.prepare("UPDATE listings SET status = 'rejected', hidden_by = NULL, notes = ? WHERE id = ?").run(notes, id);
+  }
+  s.close();
+  s = new Store(file);
+  assert.deepEqual([a, b, c, d].map((l) => s.getListing(l.id).hidden_by), ["user", "skip", "repeat", "repeat"]);
+  s.close();
+  rmSync(dir, { recursive: true, force: true });
 });

@@ -73,6 +73,17 @@ export function messageText(content) {
   }
 }
 
+// unlinked (no session) or stopped → connecting → qr (scan) or live; a drop goes
+// to reconnecting, the phone unlinking to unlinked; stop() ends anywhere.
+export const WA_STATES = {
+  unlinked: ["connecting"],
+  stopped: ["connecting", "unlinked"],
+  connecting: ["qr", "live", "reconnecting", "unlinked", "stopped"],
+  qr: ["live", "reconnecting", "unlinked", "stopped"],
+  live: ["reconnecting", "unlinked", "stopped"],
+  reconnecting: ["connecting", "unlinked", "stopped"]
+};
+
 export class PropertyWhatsApp extends EventEmitter {
   // deviceName: how the session appears under WhatsApp › Linked devices.
   constructor({ authDir, store, log = console.log, excludeNames = [], maxMessagesBeforeLink = DEFAULT_MAX_BEFORE_LINK, deviceName = "sg-stay-where" }) {
@@ -110,6 +121,13 @@ export class PropertyWhatsApp extends EventEmitter {
     };
   }
 
+  // The connection's states and where each may go (WA_STATES). A library event
+  // that doesn't fit is logged and still applied: the header shows what is.
+  #setState(next) {
+    if (next !== this.state && !WA_STATES[this.state]?.includes(next)) this.log("warn", `WhatsApp ${this.state} → ${next}: unexpected`);
+    this.state = next;
+  }
+
   async start() {
     mkdirSync(this.authDir, { recursive: true, mode: 0o700 });
     this.stopped = false;
@@ -121,7 +139,7 @@ export class PropertyWhatsApp extends EventEmitter {
     clearTimeout(this.reconnectTimer);
     this.sock?.end(undefined);
     this.pending.clear();
-    this.state = this.linked() ? "stopped" : "unlinked";
+    this.#setState(this.linked() ? "stopped" : "unlinked");
   }
 
   async logout() {
@@ -129,7 +147,7 @@ export class PropertyWhatsApp extends EventEmitter {
     try { await this.sock?.logout(); } catch { /* already gone */ }
     rmSync(this.authDir, { recursive: true, force: true });
     this.pending.clear();
-    this.state = "unlinked";
+    this.#setState("unlinked");
   }
 
   async #connect() {
@@ -157,7 +175,7 @@ export class PropertyWhatsApp extends EventEmitter {
   // Tests attach a fake socket here.
   attach(sock) {
     this.sock = sock;
-    this.state = "connecting";
+    this.#setState("connecting");
     sock.ev.on("connection.update", (update) => this.#onConnection(update));
     sock.ev.on("messaging-history.set", ({ messages = [], lidPnMappings = [], contacts = [] }) => {
       this.lastHistoryAt = Date.now();
@@ -180,7 +198,7 @@ export class PropertyWhatsApp extends EventEmitter {
   async #onConnection({ connection, lastDisconnect, qr }) {
     if (qr) {
       this.qr = await QRCode.toDataURL(qr, { width: 360, margin: 2 });
-      this.state = "qr";
+      this.#setState("qr");
       this.emit("qr", qr);
     }
     if (connection === "open") {
@@ -188,7 +206,7 @@ export class PropertyWhatsApp extends EventEmitter {
       this.selfLid = this.sock.user?.lid ? jidNormalizedUser(this.sock.user.lid) : null;
       this.reconnectAttempts = 0;
       this.qr = null;
-      this.state = "live";
+      this.#setState("live");
       this.log("info", `WhatsApp connected as +${phoneFromJid(this.selfJid)}`);
       this.emit("changed", []);
     }
@@ -196,7 +214,7 @@ export class PropertyWhatsApp extends EventEmitter {
       const code = lastDisconnect?.error?.output?.statusCode;
       if (code === DisconnectReason.loggedOut) {
         rmSync(this.authDir, { recursive: true, force: true });
-        this.state = "unlinked";
+        this.#setState("unlinked");
         this.log("warn", "WhatsApp unlinked by the phone; scan a new QR to relink");
         this.emit("changed", []);
         if (!this.stopped) this.reconnectTimer = setTimeout(() => this.#connect().catch((e) => this.log("error", e.message)), 2000);
@@ -205,7 +223,7 @@ export class PropertyWhatsApp extends EventEmitter {
       if (this.stopped) return;
       const delay = code === DisconnectReason.restartRequired ? 0
         : Math.min(MAX_RECONNECT_DELAY_MS, 1000 * 2 ** this.reconnectAttempts++) * (0.5 + Math.random() / 2);
-      this.state = "reconnecting";
+      this.#setState("reconnecting");
       this.log("warn", `WhatsApp closed (${code ?? "unknown"}); reconnecting in ${Math.round(delay / 1000)}s`);
       this.reconnectTimer = setTimeout(() => Promise.resolve(this.credsSaved)
         .then(() => this.#connect())
@@ -280,8 +298,8 @@ export class PropertyWhatsApp extends EventEmitter {
       this.pending.set(pn, [...(this.pending.get(pn) ?? []), ...held]);
     }
     const [a, b] = [this.store.getChat(lid), this.store.getChat(pn)];
-    if (a?.ignored && !b?.ignored) this.store.ignoreChat(pn, a.flag_reason.replace(/^ignored:/, ""));
-    if (b?.ignored && a && !a.ignored) this.store.ignoreChat(lid, b.flag_reason.replace(/^ignored:/, ""));
+    if (a?.ignored && !b?.ignored) this.store.ignoreChat(pn, a.ignore_reason);
+    if (b?.ignored && a && !a.ignored) this.store.ignoreChat(lid, b.ignore_reason);
   }
 
   // Prefer the phone-number JID so one agent keeps one chat across addressing modes.

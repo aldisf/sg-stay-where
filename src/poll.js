@@ -11,6 +11,28 @@ import os from "node:os";
 import path from "node:path";
 
 export const POLL_GAP_MIN = 20;
+// A job older than this is hung (the Maps queue stops a run at 100 minutes), so
+// its lock no longer counts and the next poll goes ahead.
+export const STALE_LOCK_MIN = 120;
+
+// The pid holding a lock, or 0: no lock, its process is gone, or it is stale.
+export function lockHolder(file, now = Date.now()) {
+  try {
+    const pid = Number(readFileSync(file, "utf8"));
+    if (!pid || now - statSync(file).mtimeMs > STALE_LOCK_MIN * 60_000) return 0;
+    process.kill(pid, 0);
+    return pid;
+  } catch { return 0; }
+}
+
+// Back-to-back polls look like a burst to the sites (Cloudflare checks follow), so
+// listing-site polls start at least POLL_GAP_MIN apart. Google Maps checks don't wait.
+export function sitesGap(dataDir, now = Date.now()) {
+  const file = path.join(dataDir, "poll.last");
+  const minutes = existsSync(file) ? Math.floor((now / 1000 - Number(readFileSync(file, "utf8"))) / 60) : Infinity;
+  return { open: minutes >= POLL_GAP_MIN, minutes };
+}
+export const markPollStart = (dataDir, now = Date.now()) => writeFileSync(path.join(dataDir, "poll.last"), String(Math.floor(now / 1000)));
 
 // Each agent's non-interactive mode with its closest tool restriction. Only Claude
 // can limit shell commands to the tracker's CLI; see docs/polling.md. The prompt
@@ -36,10 +58,6 @@ const SIDE_BY_SIDE = new Set(["claude"]);
 
 export const cmdQuote = (arg) => (/[\s"&|<>^()*%!]/.test(arg) ? `"${arg.replace(/"/g, '""')}"` : arg);
 
-const alive = (pid) => {
-  try { process.kill(pid, 0); return true; } catch { return false; }
-};
-
 export async function poll({ root, env = process.env, agents = AGENTS, jobs = JOBS, only = null, out = console.log, err = console.error } = {}) {
   const data = path.resolve(root, env.SSW_DATA_DIR || "data");
   const logs = path.join(data, "poll-logs");
@@ -52,23 +70,20 @@ export async function poll({ root, env = process.env, agents = AGENTS, jobs = JO
   process.on("exit", unlock);
   try {
     for (const name of only ? [only] : Object.keys(jobs)) {
-      const holder = existsSync(lockOf(name)) ? Number(readFileSync(lockOf(name), "utf8")) : 0;
-      if (holder && holder !== process.pid && alive(holder)) out(`${name}: already running (pid ${holder})`);
+      const holder = lockHolder(lockOf(name));
+      if (holder && holder !== process.pid) out(`${name}: already running (pid ${holder})`);
       else {
         writeFileSync(lockOf(name), String(process.pid));
         held.push(name);
       }
     }
     if (held.includes("sites")) {
-      // Back-to-back polls look like a burst to the sites (Cloudflare checks follow).
-      // Google Maps checks don't touch them, so they go ahead.
-      const lastFile = path.join(data, "poll.last");
-      const now = Math.floor(Date.now() / 1000);
-      const mins = !env.SSW_POLL_GAP_CHECKED && existsSync(lastFile) ? Math.floor((now - Number(readFileSync(lastFile, "utf8"))) / 60) : Infinity;
-      if (mins < POLL_GAP_MIN) {
-        out(`sites: skipped, last poll started ${mins} min ago; polls start at least ${POLL_GAP_MIN} minutes apart`);
+      // Poll now checked the gap already, so the server's answer and this agree.
+      const gap = env.SSW_POLL_GAP_CHECKED ? { open: true } : sitesGap(data);
+      if (!gap.open) {
+        out(`sites: skipped, last poll started ${gap.minutes} min ago; polls start at least ${POLL_GAP_MIN} minutes apart`);
         release("sites");
-      } else writeFileSync(lastFile, String(now));
+      } else markPollStart(data);
     }
     const run = [...held];
     if (!run.length) return 0;

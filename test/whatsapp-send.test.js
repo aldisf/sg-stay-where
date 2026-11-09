@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { Store } from "../src/db.js";
-import { PropertyWhatsApp } from "../src/whatsapp.js";
+import { PropertyWhatsApp, WA_STATES } from "../src/whatsapp.js";
 
 function setup(t) {
   const dir = mkdtempSync(path.join(tmpdir(), "ssw-send-"));
@@ -37,4 +37,24 @@ test("intros go out back to back; the same message is never sent twice to one ag
   const twice = await Promise.allSettled([wa.send(b, "Can we view Saturday?"), wa.send(b, "Can we view Saturday?")]);
   assert.deepEqual(twice.map((r) => r.status).sort(), ["fulfilled", "rejected"], "a double click sends once");
   assert.equal(sent.length, 4);
+});
+
+test("the connection moves through its named states, and an unexpected move is logged, not hidden", async (t) => {
+  const dir = mkdtempSync(path.join(tmpdir(), "ssw-wa-state-"));
+  const store = new Store(path.join(dir, "s.sqlite"));
+  const warnings = [];
+  const wa = new PropertyWhatsApp({ authDir: path.join(dir, "auth"), store, log: (level, text) => { if (level === "warn") warnings.push(text); } });
+  t.after(async () => { await wa.stop(); clearInterval(wa.purgeTimer); clearTimeout(wa.reconnectTimer); store.close(); rmSync(dir, { recursive: true, force: true }); });
+  const ev = new EventEmitter();
+  assert.equal(wa.state, "unlinked");
+  wa.attach({ ev, user: { id: "6580000001:7@s.whatsapp.net" }, end() {} });
+  assert.equal(wa.state, "connecting");
+  ev.emit("connection.update", { connection: "open" });
+  assert.equal(wa.status().state, "live");
+  for (const [from, to] of Object.entries(WA_STATES)) for (const next of to) assert.ok(WA_STATES[next], `${from} → ${next} lands on a named state`);
+  assert.deepEqual(warnings.filter((w) => w.includes("unexpected")), []);
+  ev.emit("connection.update", { connection: "close", lastDisconnect: { error: { output: { statusCode: 401 } } } });
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(wa.state, "unlinked", "401 is loggedOut");
+  assert.deepEqual(warnings.filter((w) => w.includes("unexpected")), []);
 });

@@ -38,8 +38,9 @@ Be gentle with the sites: the search's configured pages (5 by default, at most 5
 
 `GET /api/state` → `projects[]` (not archived = poll them). For each project:
 `GET /api/state?project=<id>` → `project` (criteria, searches), `criteria` (with
-defaults filled in), `listings[]` with `needsDetails`, `needsMaps`,
-`needsRecheck`, `summaryStale`, `status`, plus `projectVersion`. Never process `rejected` or
+defaults filled in), `listings[]` with `stage` (`details`, `maps` or `ready`: what
+a poll still owes it), `needsDetails`, `needsMaps`, `needsRecheck`, `summaryStale`,
+`status`, plus `projectVersion`. Never process `rejected` or
 merged listings. Skip `closed` and `unavailable` for sourcing/details/maps; their
 new chat messages may still be summarised without reopening them.
 

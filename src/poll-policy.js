@@ -1,19 +1,5 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
-// A listing no search page has shown for this long may be gone, so polls reopen it.
-export const RECHECK_AFTER_MS = 3 * 86_400_000;
-const DONE = ["rejected", "closed", "unavailable"];
-
-// Still to decide on and not seen lately. From "contacted" on, the agent's chat
-// says whether it is still available.
-export function needsRecheck(listing, now = Date.now()) {
-  if (!["new", "shortlisted"].includes(listing.status) || listing.merged_into || !listing.details_at || !listing.enriched_at) return false;
-  return now - Date.parse(listing.seen_at ?? listing.details_at) > RECHECK_AFTER_MS;
-}
-
-export const detailDue = (listing, now = Date.now()) =>
-  !listing.merged_into && !DONE.includes(listing.status) && (!listing.details_at || needsRecheck(listing, now));
-
 // Grants have jitter rather than allowing a burst at the minute boundary. The
 // ledger survives server restarts and is shared by projects and poll workers.
 export class PortalPacer {

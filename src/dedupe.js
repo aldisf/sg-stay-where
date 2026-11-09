@@ -1,6 +1,7 @@
 // When the user marks a listing "Not interested", its repeats (the same flat,
 // usually from another agent) are hidden with it, now and when a poll imports them.
 
+import { actedOn } from "./lifecycle.js";
 import { photoMatches } from "./photohash.js";
 
 const norm = (s) => String(s ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -81,14 +82,7 @@ export function likeness(a, b) {
 }
 
 export function pickPrimary(a, b) {
-  // A listing the poll skipped by itself ("Auto-skipped…") wasn't acted on by the user.
-  const acted = (l) => l.status !== "new" && !/^Auto-skipped/.test(l.notes ?? "");
-  const rank = (l) => (acted(l) ? 4 : 0) + (l.details_at ? 1 : 0) + (l.enriched_at ? 1 : 0);
+  const rank = (l) => (actedOn(l) ? 4 : 0) + (l.details_at ? 1 : 0) + (l.enriched_at ? 1 : 0);
   if (rank(a) !== rank(b)) return rank(a) > rank(b) ? [a, b] : [b, a];
   return Date.parse(a.created_at ?? 0) <= Date.parse(b.created_at ?? 0) ? [a, b] : [b, a];
-}
-
-// The poll's auto-skips are about the kind of listing, not this flat.
-export function hiddenByUser(listing) {
-  return listing.status === "rejected" && !/^Auto-skipped/.test(listing.notes ?? "");
 }

@@ -112,12 +112,12 @@ export function filtered({ review = false } = {}) {
     .sort((a, b) => key(a) - key(b));
   // The deck only deals listings the poll has finished (page details and Google
   // Maps); the rest stay out of sight until then.
-  const shown = review ? rows.filter((l) => !l.needsDetails && !l.needsMaps) : rows;
+  const shown = review ? rows.filter((l) => l.stage === "ready") : rows;
   shown.filteredOut = byStatus.length - rows.length;
   shown.pending = rows.length - shown.length;
-  shown.pendingMaps = review ? rows.filter((l) => !l.needsDetails && l.needsMaps).length : 0;
+  shown.pendingMaps = review ? rows.filter((l) => l.stage === "maps").length : 0;
   return shown;
 }
 
 // Every finished listing waiting in Review, before the search box and filters.
-export const readyToReview = () => state.listings.filter((l) => l.status === "new" && !l.merged_into && !l.needsDetails && !l.needsMaps);
+export const readyToReview = () => state.listings.filter((l) => l.status === "new" && !l.merged_into && l.stage === "ready");

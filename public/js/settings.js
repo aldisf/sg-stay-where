@@ -195,22 +195,23 @@ export function renderProject() {
   bookmarklet();
 }
 
-// A scheduled poll every 2 hours; past 4 hours without one, something stopped it.
-const STALLED_MS = 4 * 3600_000;
+// The server works out the poll's health (src/server.js pollStatus); this only words it.
+const POLL_TEXT = {
+  running: () => "Polling…",
+  blocked: (last) => `Searches blocked${last ? ` · ${last}` : ""}`,
+  stalled: (last) => `Polls stalled${last ? ` · ${last}` : ""}`,
+  ok: (last, skipped) => `Polled ${last}${skipped.length ? ` · ${skipped.length} skipped` : ""}`,
+  never: () => "Poll now"
+};
 
 function renderPollButton() {
-  const { lastAt, running, scheduled } = state.poll;
+  const { lastAt, health, skipped } = state.poll;
   const last = lastAt ? ago(Date.parse(lastAt) / 1000) : null;
-  const stalled = !running && scheduled && (!lastAt || Date.now() - Date.parse(lastAt) > STALLED_MS);
-  const active = (state.project.searches ?? []).filter(s => s.active !== false);
-  const blocked = active.map(s => ({ title: s.title, note: state.searchLast?.[s.title]?.note })).filter(s => s.note);
-  const allBlocked = active.length > 0 && blocked.length === active.length;
-  const text = running ? "Polling…" : allBlocked ? `Searches blocked${last ? ` · ${last}` : ""}` : stalled ? `Polls stalled${last ? ` · ${last}` : ""}` : last ? `Polled ${last}${blocked.length ? ` · ${blocked.length} skipped` : ""}` : "Poll now";
   const button = $("#poll-now");
-  setHTML(button, `${icon("refresh-cw")}<span>${esc(text)}</span>`);
-  button.disabled = running;
-  button.classList.toggle("stalled", stalled || allBlocked);
-  button.title = running ? "A poll is running" : `${stalled ? "No poll since the schedule expected one. " : ""}${blocked.map(s => `${s.title}: ${s.note}. `).join("")}Poll now`;
+  setHTML(button, `${icon("refresh-cw")}<span>${esc(POLL_TEXT[health](last, skipped))}</span>`);
+  button.disabled = health === "running";
+  button.classList.toggle("stalled", health === "stalled" || health === "blocked");
+  button.title = health === "running" ? "A poll is running" : `${health === "stalled" ? "No poll since the schedule expected one. " : ""}${skipped.map(s => `${s.search}: ${s.note}. `).join("")}Poll now`;
   button.setAttribute("aria-label", button.title);
 }
 

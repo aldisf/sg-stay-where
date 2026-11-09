@@ -10,7 +10,10 @@ for (const scenario of ['all blocked', 'partly blocked', 'no matches']) test(`po
       { id: 'off', title: 'Disabled search', active: false }
     ];
     const searchLast = Object.fromEntries(searches.map((s, i) => [s.title, { added: 0, seen: 0, note: scenario === 'all blocked' || (scenario === 'partly blocked' && i === 0) ? 'skipped: browser unavailable' : null }]));
-    await route.fulfill({ response, json: { ...json, project: { ...json.project, searches }, searchLast, poll: { running: false, scheduled: true, lastAt: new Date().toISOString() } } });
+    // What src/server.js pollStatus derives from the same rows.
+    const skipped = searches.filter(s => s.active && searchLast[s.title].note).map(s => ({ search: s.title, note: searchLast[s.title].note }));
+    const health = skipped.length === 2 ? 'blocked' : 'ok';
+    await route.fulfill({ response, json: { ...json, project: { ...json.project, searches }, searchLast, poll: { running: false, scheduled: true, lastAt: new Date().toISOString(), health, skipped } } });
   });
   await page.goto('/#/review');
   const button = page.locator('#poll-now');

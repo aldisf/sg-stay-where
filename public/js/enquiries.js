@@ -1,9 +1,7 @@
-import { $, ago, api, esc, icon, projectId, refresh, render, setHTML, sgd, state, STATUS_LABEL, toast, when } from "./core.js";
+import { $, ago, api, ENDED, esc, icon, IN_TOUCH, projectId, refresh, render, setHTML, sgd, state, STATUS_LABEL, toast, when } from "./core.js";
 import { nameOf, statusPill, thumbOf } from "./listing.js";
 
 export const UPDATE_LABEL = { reply: "New agent reply", none: "Chat summary", declined: "Enquiry declined", ended: "Enquiry ended", unavailable: "Agent says it's taken", viewing_cancelled: "Viewing cancelled", viewing_scheduled: "Viewing confirmed", viewed: "Viewing completed" };
-const IN_TOUCH = new Set(["contacted", "replied", "viewing_scheduled", "viewed", "applied", "closed"]);
-const ENDED = new Set(["closed", "unavailable"]);
 // Rows are grouped in this order; Ended starts collapsed.
 const SECTIONS = { attention: "Needs your attention", viewing: "Upcoming viewings", active: "In progress", ended: "Ended" };
 let endedOpen = false;

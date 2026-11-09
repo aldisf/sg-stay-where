@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hiddenByUser, pickPrimary, sameListing, sameUnit } from "../src/dedupe.js";
+import { pickPrimary, sameListing, sameUnit } from "../src/dedupe.js";
 
 const rv = (id, over = {}) => ({ id, building: "Example Suites", price: 3300, bedrooms: 1, sqft: 366, lat: 1.29487, lng: 103.82812, ...over });
 
@@ -21,12 +21,6 @@ test("names that differ but describe one building still match", () => {
 
 test("far apart is never a repeat", () => {
   assert.equal(sameUnit(rv(60), rv(97, { building: "Other", lat: 1.31, lng: 103.85 })), false);
-});
-
-test("poll auto-skips are not the user's hides", () => {
-  assert.equal(hiddenByUser({ status: "rejected", notes: "" }), true);
-  assert.equal(hiddenByUser({ status: "rejected", notes: "Auto-skipped by poll: Figment short-term" }), false);
-  assert.equal(hiddenByUser({ status: "new" }), false);
 });
 
 test("the same advert on two sites is one listing; a similar unit is not", () => {

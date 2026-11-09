@@ -94,7 +94,7 @@ export async function seedDemo(dir) {
       lat, lng, found_by: "poll", details_at: new Date(now - hoursAgo * 3600e3).toISOString(),
       source_mrts: [{ name: `${station} MRT`, ...offset(lat, lng, 0.003, -0.002) }]
     });
-    store.db.prepare("UPDATE listings SET created_at = ?, status = ? WHERE id = ?").run(new Date(now - hoursAgo * 3600e3).toISOString(), status, listing.id);
+    store.db.prepare("UPDATE listings SET created_at = ?, status = ?, hidden_by = ? WHERE id = ?").run(new Date(now - hoursAgo * 3600e3).toISOString(), status, status === "rejected" ? "user" : null, listing.id);
     const media = path.join(dir, "media", String(listing.id));
     mkdirSync(media, { recursive: true });
     const palette = PALETTES[i % PALETTES.length];

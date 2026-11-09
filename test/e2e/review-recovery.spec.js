@@ -21,7 +21,7 @@ test('unfinished listings are described as waiting when no poll is running', asy
   await page.route('**/api/state*', async route => {
     const response = await route.fetch();
     const json = await response.json();
-    await route.fulfill({ response, json: { ...json, poll: { ...json.poll, running: false }, listings: json.listings.map(l => ({ ...l, needsMaps: true })) } });
+    await route.fulfill({ response, json: { ...json, poll: { ...json.poll, running: false, health: 'ok' }, listings: json.listings.map(l => ({ ...l, stage: 'maps', needsMaps: true })) } });
   });
   await page.goto('/#/review');
   await expect(page.locator('#deck')).toContainText('Listings are waiting for checks.');

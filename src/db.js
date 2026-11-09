@@ -5,7 +5,8 @@ import { findPropertyLinks } from "./links.js";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { advanceStatus, FOLLOWED, followupStatus, isPortalBotMessage, leadSignals, STATUSES } from "./leads.js";
+import { isPortalBotMessage, leadSignals } from "./leads.js";
+import { advanceStatus, clearsViewing, decisionFor, foldStatus, followupStatus, HIDDEN_BY, IN_ENQUIRIES, STATUSES, unlinkedStatus } from "./lifecycle.js";
 import { normalizePhone } from "./phone.js";
 
 const SCHEMA = `
@@ -70,9 +71,11 @@ const ADDED_COLUMNS = {
   // also: the same flat's other adverts merged into this one ([{ id, source, url }]);
   // merged_into: on such a copy, the listing it was merged into.
   // photo_hashes: fingerprints of its photos (src/photohash.js), for matching across sites.
-  listings: { summary: "TEXT", photos: "TEXT", media: "TEXT", project_id: "TEXT", also: "TEXT", merged_into: "INTEGER", photo_hashes: "TEXT", status_version: "INTEGER NOT NULL DEFAULT 0", manual_message_floor: "INTEGER NOT NULL DEFAULT 0", seen_at: "TEXT", gone_at: "TEXT" },
-  // "agent" or "portal" (a listing site's enquiry bot, e.g. PropertyGuru's).
-  wa_chats: { kind: "TEXT" }
+  // hidden_by: why a rejected listing is rejected (src/lifecycle.js HIDDEN_BY).
+  listings: { summary: "TEXT", photos: "TEXT", media: "TEXT", project_id: "TEXT", also: "TEXT", merged_into: "INTEGER", photo_hashes: "TEXT", status_version: "INTEGER NOT NULL DEFAULT 0", manual_message_floor: "INTEGER NOT NULL DEFAULT 0", seen_at: "TEXT", gone_at: "TEXT", hidden_by: "TEXT" },
+  // kind: "agent" or "portal" (a listing site's enquiry bot, e.g. PropertyGuru's).
+  // ignore_reason: personal, excluded or manual, once the chat is ignored.
+  wa_chats: { kind: "TEXT", ignore_reason: "TEXT" }
 };
 
 // Fields an importer may set. status/notes are the user's and never imported.
@@ -126,6 +129,13 @@ export class Store {
     }
     // Earlier versions stored a placeholder summary on every manual status change.
     this.db.exec("UPDATE listings SET summary = NULL WHERE summary IS NOT NULL AND json_extract(summary, '$.text') IS NULL");
+    // Earlier versions kept why a listing was hidden in the wording of its note.
+    this.db.exec(`UPDATE listings SET hidden_by = CASE
+      WHEN merged_into IS NOT NULL OR notes LIKE 'Merged by you%' THEN 'merge'
+      WHEN notes LIKE 'Auto-skipped%' THEN 'skip'
+      WHEN notes LIKE 'Auto-hidden%' OR notes LIKE 'Hidden with%' THEN 'repeat'
+      ELSE 'user' END WHERE status = 'rejected' AND hidden_by IS NULL`);
+    this.db.exec("UPDATE wa_chats SET ignore_reason = substr(flag_reason, 9) WHERE ignored = 1 AND ignore_reason IS NULL AND flag_reason LIKE 'ignored:%'");
   }
 
   close() { this.db.close(); }
@@ -215,7 +225,7 @@ export class Store {
     const copy = this.getListing(copyId);
     const keep = this.getListing(keepId);
     if (!copy || !keep || copyId === keepId || keep.merged_into) return null;
-    this.db.prepare("UPDATE listings SET status = 'rejected', notes = ?, merged_into = ?, summary = NULL, status_version = status_version + 1, updated_at = ? WHERE id = ?").run(note, keepId, now(), copyId);
+    this.db.prepare("UPDATE listings SET status = 'rejected', hidden_by = 'merge', notes = ?, merged_into = ?, summary = NULL, status_version = status_version + 1, updated_at = ? WHERE id = ?").run(note, keepId, now(), copyId);
     this.db.prepare("UPDATE listings SET status_version = status_version + 1, manual_message_floor = MAX(manual_message_floor, ?) WHERE id = ?").run(copy.manual_message_floor, keepId);
     // The copy's status and notes, so a split can put it back as it was. Copies
     // already merged into the copy move along to the listing kept.
@@ -243,12 +253,11 @@ export class Store {
     this.db.prepare("INSERT OR IGNORE INTO chat_listings (chat_jid, listing_id, how) SELECT chat_jid, ?, how FROM chat_listings WHERE listing_id = ?")
       .run(listingId, stub.id);
     const real = this.getListing(listingId);
-    const order = ["new", "shortlisted", "contacted", "replied", "viewing_scheduled", "viewed", "applied"];
     const patch = {};
-    if (order.includes(real.status) && order.indexOf(stub.status) > order.indexOf(real.status)) patch.status = stub.status;
-    if (stub.status === "rejected" || (order.includes(real.status) && ["closed", "unavailable"].includes(stub.status))) patch.status = stub.status;
+    const folded = foldStatus(real.status, stub.status);
+    if (folded !== real.status) patch.status = folded;
     if (stub.notes && !real.notes.includes(stub.notes)) patch.notes = [real.notes, stub.notes].filter(Boolean).join("\n");
-    if (Object.keys(patch).length) this.updateListing(listingId, patch);
+    if (Object.keys(patch).length) this.updateListing(listingId, patch, { by: patch.status === "rejected" ? stub.hidden_by : "user" });
     this.db.prepare("UPDATE listings SET status_version = status_version + 1 WHERE id = ?").run(listingId);
     this.deleteListing(stub.id);
   }
@@ -284,11 +293,18 @@ export class Store {
     return this.db.prepare("UPDATE listings SET project_id = ? WHERE project_id IS NULL").run(projectId).changes;
   }
 
-  updateListing(id, patch, { automatic = false } = {}) {
+  // `by` is who moves it: "user" (a choice: it fences older chat evidence and drops
+  // the agent's earlier read), "poll", "chat", or one of HIDDEN_BY for a hide.
+  updateListing(id, patch, { by = "user" } = {}) {
     const keys = Object.keys(patch).filter((k) => EDITABLE.has(k));
     if (keys.includes("status") && !STATUSES.includes(patch.status)) fail(400, `unknown status ${patch.status}`);
     if (!keys.length) return this.getListing(id);
+    const values = { ...patch };
     if (keys.includes("status")) {
+      if (patch.status === "rejected" && !HIDDEN_BY.includes(by)) fail(409, `${by} cannot hide a listing`);
+      keys.push("hidden_by");
+      values.hidden_by = patch.status === "rejected" ? by : null;
+      const automatic = by !== "user";
       const floor = this.db.prepare("SELECT COALESCE(MAX(rowid), 0) AS n FROM wa_messages").get().n;
       this.db.prepare(`UPDATE listings SET status_version = status_version + 1${automatic ? "" : ", manual_message_floor = ?"} WHERE id = ?`)
         .run(...(automatic ? [id] : [floor, id]));
@@ -300,7 +316,7 @@ export class Store {
           .run(JSON.stringify({ ...rest, viewing: null, manually_adjusted: true }), id);
       }
     }
-    const args = keys.map((k) => (k === "agent_phone" ? normalizePhone(patch[k]) : patch[k]));
+    const args = keys.map((k) => (k === "agent_phone" ? normalizePhone(values[k]) : values[k]));
     this.db.prepare(`UPDATE listings SET ${keys.map((k) => `${k} = ?`).join(", ")}, updated_at = ? WHERE id = ?`)
       .run(...args, now(), id);
     return this.getListing(id);
@@ -348,7 +364,7 @@ export class Store {
     if (!copy?.merged_into) return null;
     const keep = this.getListing(copy.merged_into);
     const entry = keep?.also?.find((a) => a.id === copyId);
-    this.db.prepare("UPDATE listings SET status = ?, notes = ?, merged_into = NULL, summary = NULL, status_version = status_version + 1, updated_at = ? WHERE id = ?")
+    this.db.prepare("UPDATE listings SET status = ?, hidden_by = NULL, notes = ?, merged_into = NULL, summary = NULL, status_version = status_version + 1, updated_at = ? WHERE id = ?")
       .run(entry?.status && entry.status !== "rejected" ? entry.status : "new", entry?.notes ?? "", now(), copyId);
     this.updateListing(copyId, { status: this.getListing(copyId).status });
     if (keep) this.db.prepare("UPDATE listings SET status_version = status_version + 1 WHERE id = ?").run(keep.id);
@@ -424,25 +440,24 @@ export class Store {
     if (name) this.db.prepare("UPDATE wa_chats SET name = ? WHERE jid = ? AND ignored = 0").run(name, jid);
   }
 
-  // Not an agent chat (excluded person, personal chat, or the user said so):
-  // forget everything stored for it and never flag it again. Listings that only
-  // this chat had moved to contacted/replied go back to shortlisted.
+  // Not an agent chat (reason: "excluded" person, "personal" chat, or "manual", the
+  // user said so): forget everything stored for it and never flag it again.
+  // Listings that only this chat had moved along go back to Watching.
   ignoreChat(jid, reason = "manual") {
     const listingIds = this.listingIdsForChat(jid);
     this.#forgetChatInterpretations(jid);
     this.db.prepare("DELETE FROM wa_messages WHERE chat_jid = ?").run(jid);
     this.db.prepare("DELETE FROM chat_listings WHERE chat_jid = ?").run(jid);
     this.db.prepare(`
-      INSERT INTO wa_chats (jid, ignored, flag_reason) VALUES (?, 1, ?)
-      ON CONFLICT(jid) DO UPDATE SET ignored = 1, flagged_at = NULL, flag_reason = excluded.flag_reason, name = NULL
-    `).run(jid, `ignored:${reason}`);
+      INSERT INTO wa_chats (jid, ignored, ignore_reason) VALUES (?, 1, ?)
+      ON CONFLICT(jid) DO UPDATE SET ignored = 1, flagged_at = NULL, ignore_reason = excluded.ignore_reason, name = NULL
+    `).run(jid, reason);
     // Older page versions in the write-ahead log still hold the deleted text.
     this.db.exec("PRAGMA wal_checkpoint(TRUNCATE)");
     for (const id of listingIds) {
       const listing = this.getListing(id);
-      if (listing && !this.chatsForListing(id).length && ["contacted", "replied"].includes(listing.status)) {
-        this.updateListing(id, { status: "shortlisted" }, { automatic: true });
-      }
+      const next = listing && !this.chatsForListing(id).length ? unlinkedStatus(listing.status) : listing?.status;
+      if (listing && next !== listing.status) this.updateListing(id, { status: next }, { by: "chat" });
     }
   }
 
@@ -465,7 +480,7 @@ export class Store {
   // chats that are not property chats (the gate keeps this at 0).
   chatCensus() {
     return {
-      ignored: this.db.prepare("SELECT flag_reason AS reason, COUNT(*) AS n FROM wa_chats WHERE ignored = 1 GROUP BY flag_reason ORDER BY n DESC").all(),
+      ignored: this.db.prepare("SELECT ignore_reason AS reason, COUNT(*) AS n FROM wa_chats WHERE ignored = 1 GROUP BY ignore_reason ORDER BY n DESC").all(),
       outside: this.db.prepare("SELECT COUNT(*) AS n FROM wa_messages m LEFT JOIN wa_chats c ON c.jid = m.chat_jid WHERE c.flagged_at IS NULL OR c.ignored = 1").get().n
     };
   }
@@ -568,7 +583,7 @@ export class Store {
     }
     const signals = leadSignals(this.listingMessages(listingId));
     const next = advanceStatus(listing.status, signals);
-    if (next !== listing.status) this.updateListing(listingId, { status: next }, { automatic: true });
+    if (next !== listing.status) this.updateListing(listingId, { status: next }, { by: "chat" });
     return signals;
   }
 
@@ -635,11 +650,11 @@ export class Store {
     const viewing = summary.viewing;
     if (viewing != null && (typeof viewing !== "object" || !Number.isFinite(Date.parse(viewing.at)) || !/(Z|[+-]\d\d:\d\d)$/.test(viewing.at) || typeof viewing.confirmed !== "boolean" || (viewing.place != null && (typeof viewing.place !== "string" || viewing.place.length > 1000)))) fail(400, "Viewing needs an ISO date with timezone, confirmed boolean, and optional place");
     if (outcome === "viewing_scheduled" && !viewing?.confirmed) fail(400, "A scheduled viewing needs a confirmed time");
-    const clearViewing = ["viewing_cancelled", "declined", "ended", "unavailable"].includes(outcome) || ["closed", "unavailable"].includes(next);
-    const decision = clearViewing ? "not_viewing" : next === "viewing_scheduled" ? "viewing" : next === "viewed" ? "viewed" : "maybe";
+    const clearViewing = clearsViewing(outcome, next);
+    const decision = decisionFor(outcome, next);
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      if (next !== listing.status) this.updateListing(id, { status: next }, { automatic: true });
+      if (next !== listing.status) this.updateListing(id, { status: next }, { by: "chat" });
       const saved = {
         text: summary.text.trim(), next: summary.next ?? null,
         viewing: clearViewing ? null : outcome === "viewing_scheduled" ? viewing : listing.summary?.viewing ?? null, decision,
@@ -663,14 +678,14 @@ export class Store {
       JOIN listings l ON l.id = u.listing_id
       JOIN wa_chats c ON c.jid = u.chat_jid
       JOIN chat_listings cl ON cl.chat_jid = u.chat_jid AND cl.listing_id = l.id
-      WHERE l.project_id = ? AND l.merged_into IS NULL AND l.status NOT IN ('new', 'rejected')
+      WHERE l.project_id = ? AND l.merged_into IS NULL AND l.status IN (${[...IN_ENQUIRIES].map((status) => `'${status}'`).join(", ")})
         AND c.ignored = 0 AND c.flagged_at IS NOT NULL
       ORDER BY u.id DESC LIMIT 100`).all(projectId)
       .map(u => ({ ...u, key: `review:${u.id}`, at: Date.parse(u.created_at) / 1000 }));
     const replies = [];
     const snapshots = conversations ? [...conversations.values()] : this.listListings(projectId).map(l => this.followup(l.id));
     for (const { listing: l, messages } of snapshots) {
-      if (l.merged_into || !(FOLLOWED.has(l.status) || ["closed", "unavailable"].includes(l.status))) continue;
+      if (l.merged_into || !IN_ENQUIRIES.has(l.status)) continue;
       const message = messages.findLast(m => !m.from_me && !m.via_portal);
       if (!message || l.summary?.reply_digest === replyDigest(messages)) continue;
       replies.push({ key: `reply:${l.id}:${digest([message.chat_jid, message.msg_id, message.text])}`, listing_id: l.id, kind: "reply", text: message.text.slice(0, 2000), at: message.ts });

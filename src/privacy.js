@@ -5,9 +5,9 @@ import { findPropertyLinks } from "./links.js";
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 const REASONS = {
-  "ignored:personal": "personal (more messages than allowed before the first link)",
-  "ignored:excluded": "excluded (a name in excludeNames)",
-  "ignored:manual": "Not an agent (your choice in Enquiries or a listing's chat)"
+  personal: "personal (more messages than allowed before the first link)",
+  excluded: "excluded (a name in excludeNames)",
+  manual: "Not an agent (your choice in Enquiries or a listing's chat)"
 };
 
 export function privacyReport(store, { maxMessagesBeforeLink = 10, excludeNames = [] } = {}) {

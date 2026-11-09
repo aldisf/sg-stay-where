@@ -276,7 +276,7 @@ Step-by-step guides in `skills/`, for any agent:
 - `src/whatsapp.js` Baileys connection, property-chat filter, send (no repeats).
 - `src/privacy.js` the `npm run privacy` report. `test/whatsapp-gate.test.js` proves the filter.
 - `src/session-dir.js` where the WhatsApp session lives (outside the project).
-- `src/leads.js` lead signals and allowed follow-up outcomes; `src/db.js` owns evidence checks and Updates.
+- `src/lifecycle.js` the listing lifecycle: statuses, who may move a listing between them (user, poll, chat, hide), and the stage a poll still owes it. `src/leads.js` reads chat text into lead signals; `src/db.js` owns evidence checks and Updates.
 - `src/search-brief.js` revisioned plain-language brief handoff and validated plans.
 - `src/intro.js` intro message. `src/links.js` listing URLs. `src/dedupe.js` same-flat detection.
 - `src/demo.js` fictional demo data. `src/legacy.js` import from the single-project version.

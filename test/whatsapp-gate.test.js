@@ -133,7 +133,7 @@ test("a link after more than 10 messages marks the chat personal and stores none
   await env.live(message(friend, "link", `PERSONAL-shared ${PG(500000101)}`, { ts: T0 + 20, pushName: "Old Friend" }));
   await env.live(message(friend, "after", "PERSONAL-after-link", { ts: T0 + 30 }));
   assertNotOnDisk(env, [...chatter.map((m) => m.message.conversation), "PERSONAL-shared", "PERSONAL-after-link", "Old Friend"]);
-  assert.equal(env.store.getChat(friend).flag_reason, "ignored:personal");
+  assert.equal(env.store.getChat(friend).ignore_reason, "personal");
   await withServer(t, env.store, async (get) => {
     assert.equal((await get(`/api/chats/${encodeURIComponent(friend)}/messages`)).status, 404);
   });
@@ -179,8 +179,8 @@ test("a person in excludeNames is never stored, even when the chat opens with a 
   );
   await env.live(message(partner, "p3", "PERSONAL-partner-later", { pushName: "J", ts: T0 + 2 }));
   assertNotOnDisk(env, ["PERSONAL-mum", "PERSONAL-partner", "PERSONAL-partner-reply", "PERSONAL-partner-later"]);
-  assert.equal(env.store.getChat(mum).flag_reason, "ignored:excluded");
-  assert.equal(env.store.getChat(partner).flag_reason, "ignored:excluded");
+  assert.equal(env.store.getChat(mum).ignore_reason, "excluded");
+  assert.equal(env.store.getChat(partner).ignore_reason, "excluded");
 });
 
 test("held history is dropped when the sync window closes, and never written", async (t) => {
@@ -207,7 +207,7 @@ test("a long lead-in that arrives after the link is never written", async (t) =>
   const older = Array.from({ length: 11 }, (_, i) => message(friend, `o${i}`, `PERSONAL-older-${i}`, { ts: T0 + i }));
   await env.history(older);
   assertNotOnDisk(env, [...older.map((m) => m.message.conversation), "PERSONAL-looks-like-agent", "PERSONAL-reply-after-link"]);
-  assert.equal(env.store.getChat(friend).flag_reason, "ignored:personal");
+  assert.equal(env.store.getChat(friend).ignore_reason, "personal");
 });
 
 test("edits and deletions in chats that are not property chats are never written", async (t) => {

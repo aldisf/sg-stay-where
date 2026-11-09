@@ -1,4 +1,5 @@
 import { hashImagesInBrowser } from "/lib/photohash.js";
+export { ENDED, IN_TOUCH, INACTIVE, rank } from "/lib/lifecycle.js";
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -16,7 +17,6 @@ export const STATUS_LABEL = {
 };
 export const DECISION_LABEL = { viewing: "Going to view", maybe: "Undecided", not_viewing: "Not viewing", waiting: "Waiting on agent", viewed: "Viewed" };
 export const SITE = { propertyguru: "PropertyGuru", "99co": "99.co", carousell: "Carousell" };
-export const INACTIVE = new Set(["rejected", "unavailable", "closed"]);
 const PREFS_KEY = "ssw-prefs";
 
 // ?blur=1 (screenshots, screen sharing): blurs photos, names, addresses, agents and chats.

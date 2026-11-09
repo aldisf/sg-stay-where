@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
-import { cmdQuote, poll } from "../src/poll.js";
+import { cmdQuote, lockHolder, poll, STALE_LOCK_MIN } from "../src/poll.js";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const run = (dir, ...args) => spawnSync(process.execPath, ["--no-warnings=ExperimentalWarning", "src/cli.js", "poll", ...args], { cwd: root, encoding: "utf8", env: { ...process.env, SSW_DATA_DIR: dir, SSW_AGENT: "none-such" } });
@@ -30,6 +30,23 @@ test("listing-site polls start at least 20 minutes apart; Google Maps checks don
   assert.match(later.stderr, /SSW_AGENT must be/);
   assert.equal(existsSync(path.join(dir, "poll.lock")), false, "the lock is removed");
   assert.equal(run(dir, "everything").status, 1);
+});
+
+test("a lock counts while its process lives and the run is under two hours; a hung run is passed over", (t) => {
+  const dir = tempDir(t);
+  const lock = path.join(dir, "poll.lock");
+  writeFileSync(lock, String(process.pid));
+  assert.equal(lockHolder(lock), process.pid);
+  assert.match(run(dir, "sites").stdout, /already running/);
+  const old = (Date.now() - (STALE_LOCK_MIN + 1) * 60_000) / 1000;
+  utimesSync(lock, old, old);
+  assert.equal(lockHolder(lock), 0, "a run this old is hung, not working");
+  const later = run(dir, "sites");
+  assert.doesNotMatch(later.stdout, /already running/);
+  assert.equal(later.status, 2, "it went on to start the agent");
+  writeFileSync(lock, "999999");
+  assert.equal(lockHolder(lock), 0, "a pid that is gone");
+  assert.equal(lockHolder(path.join(dir, "none.lock")), 0);
 });
 
 test("the agent gets the prompt on stdin; its report and errors go to the poll log", async (t) => {

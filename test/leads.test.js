@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { advanceStatus, isPortalBotMessage, leadSignals, pollMaySetStatus } from "../src/leads.js";
+import { isPortalBotMessage, leadSignals } from "../src/leads.js";
+import { advanceStatus } from "../src/lifecycle.js";
 
 const me = (ts, text) => ({ from_me: 1, ts, text });
 const agent = (ts, text) => ({ from_me: 0, ts, text });
@@ -39,27 +40,9 @@ test("taken phrases are hints; only an evidence-bound review closes the listing"
   }
 });
 
-test("status only moves forward and never past replied by itself", () => {
-  const replied = leadSignals([me(1, "hi"), agent(2, "yes")]);
-  assert.equal(advanceStatus("new", replied), "replied");
-  assert.equal(advanceStatus("viewing_scheduled", replied), "viewing_scheduled");
-  assert.equal(advanceStatus("rejected", replied), "rejected");
-  assert.equal(advanceStatus("contacted", leadSignals([me(1, "hi")])), "contacted");
-});
-
 test("PropertyGuru and 99.co enquiry bots are recognised; agents are not", () => {
   assert.ok(isPortalBotMessage(agent(1, "*✅ Thank you for your enquiry. WhatsApp the agent directly here:* 👉 https://www.propertyguru.com.sg/contact-agent/abc")));
   assert.ok(isPortalBotMessage(agent(1, "Thank you for your enquiry. The agent will be in touch with you very soon!")));
   assert.ok(!isPortalBotMessage(agent(1, "Hi, I'm Esther Zhou. I received your enquiry from PropertyGuru")));
   assert.ok(!isPortalBotMessage(me(1, "Thank you for your enquiry. WhatsApp the agent directly")));
-});
-
-test("direct poll status edits require the evidence route except unavailable pages", () => {
-  assert.equal(pollMaySetStatus("replied", "viewing_scheduled"), false);
-  assert.equal(pollMaySetStatus("new", "unavailable"), true);
-  assert.equal(pollMaySetStatus("new", "shortlisted"), false);
-  assert.equal(pollMaySetStatus("new", "rejected"), false);
-  assert.equal(pollMaySetStatus("shortlisted", "new"), false);
-  assert.equal(pollMaySetStatus("rejected", "contacted"), false);
-  assert.equal(pollMaySetStatus("rejected", "rejected"), true);
 });

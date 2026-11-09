@@ -16,20 +16,21 @@ import http from "node:http";
 import { homedir } from "node:os";
 import { assetServer } from "./assets.js";
 import path from "node:path";
-import { hiddenByUser, likeness, pickPrimary, sameListing, sameUnit } from "./dedupe.js";
+import { likeness, pickPrimary, sameListing, sameUnit } from "./dedupe.js";
 import { haversine, walkEstimate } from "./geo.js";
 import { budgetRange, composeIntro, DEFAULT_TEMPLATE } from "./intro.js";
-import { leadSignals, pollMaySetStatus, STATUSES } from "./leads.js";
+import { leadSignals } from "./leads.js";
+import { detailDue, hiddenByUser, mapsDue, needsRecheck, pollMaySetStatus, stage, STATUSES } from "./lifecycle.js";
 import { parseListingUrl } from "./links.js";
 import { normalizePhone } from "./phone.js";
 import { checkProject, CRITERION_TYPES, criteriaOf, DEALS, mapCriteriaKey, messageProfile, profileMissing, slugify } from "./projects.js";
 import { isColiving, scoreListing } from "./score.js";
 import { applyTemplate, DISTRICTS, filtersFromPropertyGuru, newestFirst, POLL_LIMITS } from "./searches.js";
 import { canHashOnServer, photoQueue, photoUrls } from "./photos.js";
-import { JOBS, POLL_GAP_MIN } from "./poll.js";
-import { detailDue, needsRecheck, PortalPacer } from "./poll-policy.js";
+import { JOBS, lockHolder, markPollStart, POLL_GAP_MIN, sitesGap } from "./poll.js";
+import { PortalPacer } from "./poll-policy.js";
 
-import { projectVersion, requestSearchBrief, resolveSearchBrief } from "./search-brief.js";
+import { overrideSearchBrief, projectVersion, requestSearchBrief, resolveSearchBrief } from "./search-brief.js";
 
 const PORT = Number(process.env.SSW_PORT || 7431);
 const HOST = "127.0.0.1";
@@ -53,24 +54,42 @@ async function body(req) {
   try { return raw ? JSON.parse(raw) : {}; } catch { throw new HttpError(400, "invalid JSON"); }
 }
 
-// The scheduled poll's job files (scripts/install-macos.sh, skills/schedule-polls).
 const SHARE_MAPS_DAYS = 90;
 // The Maps agent stops taking work after this, so a run ends before the next
 // scheduled poll (launchd, systemd and Task Scheduler skip a start while one runs).
 const MAPS_RUN_MINUTES = 100;
+// A scheduled poll every 2 hours; past 4 hours without one, something stopped it.
+const POLL_STALLED_MS = 4 * 3600_000;
+// The scheduled poll's job files (scripts/install-macos.sh, skills/schedule-polls).
 const POLL_JOBS = [
   path.join(homedir(), "Library/LaunchAgents/sg-stay-where.poll.plist"),
   path.join(homedir(), ".config/systemd/user/sg-stay-where-poll.timer"),
   path.join(process.env.SystemRoot ?? "C:\\Windows", "System32", "Tasks", "sg-stay-where-poll"),
 ];
 
-export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = [process.execPath, "--no-warnings=ExperimentalWarning", path.join(root, "src/cli.js"), "poll"] }) {
+export async function startServer({ root, dataDir, store, projects, wa = null, log, pollCommand = [process.execPath, "--no-warnings=ExperimentalWarning", path.join(root, "src/cli.js"), "poll"], pollJobs = POLL_JOBS }) {
   let pollChild = null;
-  // Each poll job writes its pid to its lock (src/poll.js), so a scheduled poll counts too.
-  function jobRunning(job) {
-    try { process.kill(Number(readFileSync(path.join(dataDir, JOBS[job].lock), "utf8")), 0); return true; } catch { return false; }
-  }
+  // Each poll job holds a lock with its pid (src/poll.js), so a scheduled poll counts too.
+  const jobRunning = (job) => lockHolder(path.join(dataDir, JOBS[job].lock)) !== 0;
   const pollRunning = () => !!pollChild || Object.keys(JOBS).some(jobRunning);
+  const pollScheduled = () => pollJobs.some((f) => existsSync(f));
+
+  // The poll's state for the header. health: "running", "blocked" (the last run
+  // skipped every active search), "stalled" (a job exists but nothing ran for 4
+  // hours), "ok", or "never".
+  function pollStatus(p) {
+    const lastAt = store.recentPolls(1)[0]?.at ?? null;
+    const running = pollRunning();
+    const scheduled = pollScheduled();
+    const last = store.lastPollBySearch();
+    const active = (p.searches ?? []).filter((s) => s.active !== false);
+    const skipped = active.filter((s) => last[s.title]?.note).map((s) => ({ search: s.title, note: last[s.title].note, at: last[s.title].at }));
+    const health = running ? "running"
+      : active.length && skipped.length === active.length ? "blocked"
+        : scheduled && (!lastAt || Date.now() - Date.parse(lastAt) > POLL_STALLED_MS) ? "stalled"
+          : lastAt ? "ok" : "never";
+    return { lastAt, running, scheduled, health, skipped };
+  }
   // data/server.json: { "remoteHosts": ["<node>.ts.net:8431"], "allowedLogins": ["you@example.com"] }
   const access = readJson(path.join(dataDir, "server.json"), {});
   const remoteHosts = new Set(access.remoteHosts ?? []);
@@ -153,6 +172,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       score,
       station: score.station,
       coliving: isColiving(listing),
+      stage: stage(listing),
       needsDetails: !listing.details_at,
       needsMaps: !listing.enriched_at,
       needsRecheck: needsRecheck(listing),
@@ -189,7 +209,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       chats: store.listChats().filter((c) => !c.listing_ids.length || c.listing_ids.some((id) => ids.has(id))),
       polls: store.recentPolls(8),
       searchLast: store.lastPollBySearch(),
-      poll: { lastAt: store.recentPolls(1)[0]?.at ?? null, running: pollRunning(), scheduled: POLL_JOBS.some((f) => existsSync(f)) }
+      poll: pollStatus(p)
     };
   }
 
@@ -199,7 +219,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     for (const other of store.listListings(listing.project_id)) {
       if (["rejected", "unavailable"].includes(other.status) || !sameUnit(listing, other)) continue;
       hidden.push({ id: other.id, status: other.status, notes: other.notes });
-      store.updateListing(other.id, { status: "rejected", notes: `Hidden with #${listing.id} (${listing.building ?? "same flat"}): same flat from another agent.` });
+      store.updateListing(other.id, { status: "rejected", notes: `Hidden with #${listing.id} (${listing.building ?? "same flat"}): same flat from another agent.` }, { by: "repeat" });
     }
     return hidden;
   }
@@ -224,14 +244,9 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     done: (id, hashes) => { store.setPhotoHashes(id, hashes); mergeDuplicate(store.getListing(id)); }
   });
 
-  // Also links up copies skipped before merging existed ("Auto-skipped: same flat as #N").
   function mergeAllDuplicates(projectId) {
     const merged = [];
     const rows = store.listListings(projectId).sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
-    for (const l of rows) {
-      const earlier = !l.merged_into && /^Auto-skipped: same flat as #(\d+)/.exec(l.notes ?? "");
-      if (earlier && store.mergeListing(l.id, Number(earlier[1]), l.notes)) merged.push([l.id, store.getListing(l.id).merged_into]);
-    }
     for (const l of rows) {
       const fresh = store.getListing(l.id);
       if (fresh.status === "new" && !fresh.merged_into && mergeDuplicate(fresh)) merged.push([l.id, store.getListing(l.id).merged_into]);
@@ -242,7 +257,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
   function hideIfRepeatOfHidden(listing) {
     const twin = store.listListings(listing.project_id).find((other) => hiddenByUser(other) && sameUnit(listing, other));
     if (!twin) return false;
-    store.updateListing(listing.id, { status: "rejected", notes: `Auto-hidden: same flat as #${twin.id} you marked Not interested.` });
+    store.updateListing(listing.id, { status: "rejected", notes: `Auto-hidden: same flat as #${twin.id} you marked Not interested.` }, { by: "repeat" });
     return true;
   }
 
@@ -292,7 +307,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       // Re-checked when a poll adds details to a listing still waiting in Review:
       // Carousell gives the postal code and the room/whole-unit type only there.
       const skip = (created || listing.status === "new") && input.found_by === "poll" ? skipReason(listing, p) : null;
-      if (skip) store.updateListing(listing.id, { status: "rejected", notes: `Auto-skipped by poll (${skip}). Set status to Watching to keep it.` });
+      if (skip) store.updateListing(listing.id, { status: "rejected", notes: `Auto-skipped by poll (${skip}). Set status to Watching to keep it.` }, { by: "skip" });
       // The same flat from the other site becomes one card. A link the user pasted
       // is theirs to keep; only polls' and imports' copies are merged away.
       else if (input.found_by !== "manual" && mergeDuplicate(store.getListing(listing.id))) { /* merged into the listing already tracked */ }
@@ -318,7 +333,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     let waiting = 0;
     for (const p of projects.list().filter((x) => !x.archived)) {
       const all = store.listListings(p.id);
-      const queued = all.filter((l) => !l.enriched_at && l.details_at && l.lat != null && l.lng != null && !l.merged_into && !["rejected", "closed", "unavailable"].includes(l.status));
+      const queued = all.filter(mapsDue);
       waiting += queued.length;
       if (!timeUp) ready.push(...queued);
     }
@@ -448,8 +463,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       const p = projectOr404(id);
       let next;
       try { next = applyTemplate(p, name, input); } catch (error) { throw new HttpError(400, error.message); }
-      if (next.searchBrief) next.searchBrief = { ...next.searchBrief, status: "overridden", revision: next.searchBrief.revision + 1 };
-      saveProject(next);
+      saveProject(overrideSearchBrief(next));
       return { template: next.templates[name], searches: next.searches.filter(s => s.template === name) };
     }],
     ["PUT", /^\/api\/projects\/([\w-]+)\/search-brief$/, async (req, [id]) => {
@@ -506,7 +520,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       if (poll && patch.status && !pollMaySetStatus(before.status, patch.status)) {
         throw new HttpError(409, `the user decides ${before.status} → ${patch.status}; leave it`);
       }
-      const listing = store.updateListing(Number(id), patch, { automatic: poll });
+      const listing = store.updateListing(Number(id), patch, { by: poll ? "poll" : "user" });
       // A poll's only status change is "the listing page is gone".
       if (patch.status && patch.status !== before.status) store.setGone(listing.id, poll && patch.status === "unavailable" ? new Date().toISOString() : null);
       const alsoHidden = patch.status === "rejected" && before.status !== "rejected" ? hideRepeats(listing) : [];
@@ -637,10 +651,9 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     }],
     ["POST", /^\/api\/poll$/, () => {
       if (pollChild || jobRunning("sites")) throw new HttpError(409, "A poll is already running.");
-      const lastFile = path.join(dataDir, "poll.last");
-      const mins = existsSync(lastFile) ? Math.floor((Date.now() / 1000 - Number(readFileSync(lastFile, "utf8"))) / 60) : Infinity;
-      if (mins < POLL_GAP_MIN) throw new HttpError(409, `The last poll started ${mins} min ago. Polls start at least ${POLL_GAP_MIN} minutes apart, so the sites don't see a burst.`);
-      writeFileSync(lastFile, String(Math.floor(Date.now() / 1000)));
+      const gap = sitesGap(dataDir);
+      if (!gap.open) throw new HttpError(409, `The last poll started ${gap.minutes} min ago. Polls start at least ${POLL_GAP_MIN} minutes apart, so the sites don't see a burst.`);
+      markPollStart(dataDir);
       const [cmd, ...args] = pollCommand;
       pollChild = spawn(cmd, args, { cwd: root, env: { ...process.env, SSW_DATA_DIR: dataDir, SSW_PORT: String(server.address().port), SSW_POLL_GAP_CHECKED: "1" }, detached: true, stdio: "ignore", windowsHide: true });
       pollChild.on("exit", () => { pollChild = null; });
@@ -698,7 +711,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
     const p = project(projectId);
     const tag = `"${createHash("sha1").update(JSON.stringify([
       store.changeKey(), projectVersion(p), projects.list(),
-      settings(), wa?.status() ?? null, pollRunning(), POLL_JOBS.map((f) => existsSync(f)), Math.floor(Date.now() / 300_000)
+      settings(), wa?.status() ?? null, pollRunning(), pollScheduled(), Math.floor(Date.now() / 300_000)
     ])).digest("hex").slice(0, 20)}"`;
     const headers = { "content-type": "application/json", "cache-control": "no-store", etag: tag, vary: "accept-encoding" };
     if (req.headers["if-none-match"] === tag) { res.writeHead(304, headers); res.end(); return; }
@@ -741,6 +754,7 @@ export async function startServer({ root, dataDir, store, projects, wa = null, l
       // The page previews intro messages with the same pure module the server sends.
       if (url.pathname === "/lib/intro.js") return await serveFile(req, res, path.join(root, "src/intro.js"));
       if (url.pathname === "/lib/photohash.js") return await serveFile(req, res, path.join(root, "src/photohash.js"));
+      if (url.pathname === "/lib/lifecycle.js") return await serveFile(req, res, path.join(root, "src/lifecycle.js"));
       const name = path.basename(url.pathname);
       if (url.pathname.startsWith("/vendor/") && vendor[name]) return await serveFile(req, res, vendor[name]);
       // An icon not downloaded yet shows as a question mark, not as nothing.

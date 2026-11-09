@@ -5,6 +5,10 @@ import { checkProject } from "./projects.js";
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 export const projectVersion = project => createHash("sha256").update(JSON.stringify(project)).digest("hex");
 
+// A brief is "pending" until the agent answers with a plan ("applied") or a question
+// ("needs_input"); a template the user applies meanwhile makes it "overridden".
+export const BRIEF_STATUSES = ["pending", "needs_input", "applied", "overridden"];
+
 export function requestSearchBrief(project, text) {
   if (typeof text !== "string" || !text.trim() || text.length > 8000) fail(400, "Describe your search in 1–8000 characters.");
   return { ...project, searchBrief: { text: text.trim(), revision: (project.searchBrief?.revision ?? 0) + 1, status: "pending", requested_at: new Date().toISOString() } };
@@ -30,4 +34,9 @@ export function resolveSearchBrief(project, plan) {
   const errors = checkProject(next);
   if (errors.length) fail(400, errors.join("; "));
   return { ...next, searchBrief: { ...brief, status: "applied", explanation: plan.explanation, applied_at: new Date().toISOString() } };
+}
+
+export function overrideSearchBrief(project) {
+  if (!project.searchBrief) return project;
+  return { ...project, searchBrief: { ...project.searchBrief, status: "overridden", revision: project.searchBrief.revision + 1 } };
 }
